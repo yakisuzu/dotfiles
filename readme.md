@@ -14,6 +14,7 @@ webログインし、プロフィールから登録
 `~/dotfiles/install.sh`  
 
 ## apps setup
+### Homebrew
 [Homebrew](https://brew.sh/index_ja)  
 `/usr/bin/ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"`  
 `brew tap caskroom/cask`  
@@ -22,8 +23,17 @@ webログインし、プロフィールから登録
 `brew cask install appcleaner alfred adobe-acrobat-reader macvim`  
 `brew cask install docker`  
 
-### app link
-[docker](https://hub.docker.com/editions/community/docker-ce-desktop-mac)  
+#### after setting
+システム環境設定 > キーボード  
+alt+spaceを外す  
+
+### Ricty
+```
+brew tap sanemat/font
+brew install ricty
+cp -f /usr/local/opt/ricty/share/fonts/Ricty*.ttf ~/Library/Fonts/
+fc-cache -vf
+```
 
 
 # win
