@@ -1,7 +1,21 @@
-# mac, linux
+# common
+## create keygen
+`ssh-keygen`  
+
+## add github　ssh key
+webログインし、プロフィールから登録  
+
+
+# mac
+## DL
+`git clone git@github.com:yakisuzu/dotfiles.git ~/dotfiles`  
+
 ## dotfiles install
 `~/dotfiles/install.sh`  
 
+## apps setup
+[Homebrew](https://brew.sh/index_ja)  
+`/usr/bin/ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"`  
 
 # win
 ## git setting
