@@ -2,7 +2,7 @@
 ## create keygen
 `ssh-keygen`  
 
-## add github　ssh key
+## add github ssh key
 webログインし、プロフィールから登録  
 
 
@@ -16,6 +16,14 @@ webログインし、プロフィールから登録
 ## apps setup
 [Homebrew](https://brew.sh/index_ja)  
 `/usr/bin/ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"`  
+`brew tap caskroom/cask`  
+`brew cask install java`  
+`brew install openssl tree p7zip python python3 go maven tig nvm rbenv ruby-build tmux`  
+`brew cask install appcleaner alfred adobe-reader`  
+
+### app link
+[docker](https://hub.docker.com/editions/community/docker-ce-desktop-mac)  
+
 
 # win
 ## git setting
