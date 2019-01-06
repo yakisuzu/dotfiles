@@ -19,7 +19,8 @@ webログインし、プロフィールから登録
 `brew tap caskroom/cask`  
 `brew cask install java`  
 `brew install openssl tree p7zip python python3 go maven tig nvm rbenv ruby-build tmux`  
-`brew cask install appcleaner alfred adobe-reader`  
+`brew cask install appcleaner alfred adobe-reader macvim`  
+`brew cask install docker`  
 
 ### app link
 [docker](https://hub.docker.com/editions/community/docker-ce-desktop-mac)  
