@@ -1,4 +1,7 @@
-#!/bin/sh
+#!/bin/bash
+echo ------------
+echo read .bashrc
+echo ------------
 
 export LANG=ja_JP.UTF-8
 export LESSCHARSET=utf-8
@@ -10,12 +13,6 @@ function MACRC(){
   # for mac alias
   alias vim="/Applications/MacVim.app/Contents/MacOS/Vim"
   alias gvim="open /Applications/MacVim.app"
-
-  # Node Version Manager
-  export NVM_DIR=~/.nvm
-  if [ -d $NVM_DIR ]; then
-    . $(brew --prefix nvm)/nvm.sh
-  fi
 }
 
 #########################
@@ -44,10 +41,6 @@ function WINRC(){
   # for windows alias
   alias ls='ls --color=auto --show-control-chars'
   alias powershell='powershell -ExecutionPolicy unrestricted'
-
-  # for 64bit
-  #if [ `uname -m` == 'x86_64' ]; then
-  #fi
 }
 
 #########################
@@ -72,17 +65,10 @@ if [ -e ~/.bashrc_local ]; then
   # export PATH=$PATH:$SYSTEMDRIVE/opscode/chefdk/embedded/bin
 fi
 
-if [ `uname` == 'Darwin' ]; then
-  MACRC
-elif [ `expr substr $(uname -s) 1 7` == 'MSYS_NT' ]; then
-  WINRC
-fi
-
-export PATH=$PATH:~/dotfiles/bin
-
-echo path
-echo ----
-echo $PATH | sed 's/:/\n/g'
+OS=$(uname -s)
+[[ "$OS" == "Darwin" ]] && MACRC
+[[ "${OS:1:7}" == "MSYS_NT" ]] && WINRC
+OS=
 
 unset MACRC
 unset WINRC
