@@ -23,8 +23,12 @@ webログインし、プロフィールから登録
 /usr/bin/ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
 brew tap caskroom/cask
 brew cask install java
-brew install openssl openssh tree p7zip maven tig tmux
+brew reinstall openssl
+brew install openssh tree p7zip maven tig tmux
 brew cask install appcleaner alfred adobe-acrobat-reader macvim docker
+
+# dependencies python3
+brew install readline xz
 ```
 
 #### after setting
