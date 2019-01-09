@@ -23,7 +23,7 @@ webログインし、プロフィールから登録
 /usr/bin/ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
 brew tap caskroom/cask
 brew cask install java
-brew install openssl tree p7zip maven tig tmux
+brew install openssl openssh tree p7zip maven tig tmux
 brew cask install appcleaner alfred adobe-acrobat-reader macvim docker
 ```
 
@@ -34,6 +34,10 @@ alt+spaceを外す
 ### anyenv
 ```
 git clone https://github.com/riywo/anyenv ~/.anyenv
+anyenv install nodenv
+anyenv install pyenv
+anyenv install goenv
+anyenv install rbenv
 ```
 
 ### Ricty
