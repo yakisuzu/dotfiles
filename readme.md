@@ -2,6 +2,9 @@
 ## create keygen
 `ssh-keygen`  
 
+### mac
+`cat ~/.ssh/id_rsa.pub | pbcopy`
+
 ## add github ssh key
 webログインし、プロフィールから登録  
 
