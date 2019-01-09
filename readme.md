@@ -38,6 +38,14 @@ anyenv install nodenv
 anyenv install pyenv
 anyenv install goenv
 anyenv install rbenv
+
+mkdir -p $(anyenv root)/plugins
+git clone https://github.com/znz/anyenv-update.git $(anyenv root)/plugins/anyenv-update
+
+#nodenv install -l
+#nodenv install ${LTS}
+#nodenv global ${LTS}
+#...
 ```
 
 ### Ricty
