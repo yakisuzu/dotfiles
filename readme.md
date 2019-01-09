@@ -16,16 +16,22 @@ webログインし、プロフィールから登録
 ## apps setup
 ### Homebrew
 [Homebrew](https://brew.sh/index_ja)  
-`/usr/bin/ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"`  
-`brew tap caskroom/cask`  
-`brew cask install java`  
-`brew install openssl tree p7zip python python3 go maven tig nvm rbenv ruby-build tmux`  
-`brew cask install appcleaner alfred adobe-acrobat-reader macvim`  
-`brew cask install docker`  
+```
+/usr/bin/ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
+brew tap caskroom/cask
+brew cask install java
+brew install openssl tree p7zip maven tig tmux
+brew cask install appcleaner alfred adobe-acrobat-reader macvim docker
+```
 
 #### after setting
 システム環境設定 > キーボード  
 alt+spaceを外す  
+
+### anyenv
+```
+git clone https://github.com/riywo/anyenv ~/.anyenv
+```
 
 ### Ricty
 ```
