@@ -10,6 +10,11 @@ export GOPATH=~/work/go
 
 #########################
 function MACRC(){
+  # PATH before
+  # TODO tmuxで重複するが、順番がかわるので宣言しなおし
+  export PATH="$HOME/.anyenv/bin:$PATH"
+  eval "$(anyenv init -)"
+
   # for mac alias
   alias vim="/Applications/MacVim.app/Contents/MacOS/Vim"
   alias gvim="open /Applications/MacVim.app"
@@ -56,19 +61,14 @@ PS1='\[\033[36m\]\u@\h \[\033[31m\]\w\[\033[0m\]\n$ '
 alias lsa='ls -lah'
 alias vi='vim -u NONE'
 
-if [ -e ~/.bashrc_local ]; then
-  . ~/.bashrc_local
-
-  # sample
-  # export PATH=$PATH:$PROGRAMFILES/Python36
-  # export PATH=$PATH:$PROGRAMFILES/Python36/Scripts
-  # export PATH=$PATH:$SYSTEMDRIVE/opscode/chefdk/embedded/bin
-fi
-
 OS=$(uname -s)
 [[ "$OS" == "Darwin" ]] && MACRC
 [[ "${OS:1:7}" == "MSYS_NT" ]] && WINRC
 OS=
+
+[ -e ~/.bashrc_local ] && . ~/.bashrc_local
+# sample
+# export PATH=$PATH:$SYSTEMDRIVE/opscode/chefdk/embedded/bin
 
 unset MACRC
 unset WINRC

@@ -5,13 +5,11 @@ echo ------------------
 
 OS=$(uname -s) && echo OS=$OS `uname -m`
 if [[ "$OS" == "Darwin" ]]; then
-  # PATH before
-  [[ ! "$PATH" =~ anyenv/bin ]] && export PATH="$HOME/.anyenv/bin:$PATH"
-  [[ ! "$PATH" =~ anyenv/envs ]] && eval "$(anyenv init -)"
-
   # update
   #brew update
+  #brew cask upgrade
   #anyenv update
+  echo
 elif [[ "${OS:1:7}" == "MSYS_NT" ]]; then
   # init ssh
   eval `ssh-agent` > /dev/null

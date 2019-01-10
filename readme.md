@@ -24,11 +24,15 @@ webログインし、プロフィールから登録
 brew tap caskroom/cask
 brew cask install java
 brew reinstall openssl
-brew install openssh tree p7zip maven tig tmux
+brew install openssh git tree p7zip maven tig tmux
 brew cask install appcleaner alfred adobe-acrobat-reader macvim docker
 
 # dependencies python3
-brew install readline xz
+brew install readline xz openssl@1.1
+
+# cloud infra
+brew install awscli
+brew cask install google-cloud-sdk
 ```
 
 #### after setting
@@ -49,6 +53,8 @@ git clone https://github.com/znz/anyenv-update.git $(anyenv root)/plugins/anyenv
 #nodenv install -l
 #nodenv install ${LTS}
 #nodenv global ${LTS}
+
+#CONFIGURE_OPTS="--with-openssl=$(brew --prefix openssl@1.1)" pyenv install ${LTS}
 #...
 ```
 
