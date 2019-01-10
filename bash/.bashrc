@@ -18,6 +18,11 @@ function MACRC(){
   # for mac alias
   alias vim="/Applications/MacVim.app/Contents/MacOS/Vim"
   alias gvim="open /Applications/MacVim.app"
+
+  # gcloud
+  GCLOUD_HOME="/usr/local/Caskroom/google-cloud-sdk/latest/google-cloud-sdk"
+  [ -e "$GCLOUD_HOME/path.bash.inc" ] && . "$GCLOUD_HOME/path.bash.inc"
+  [ -e "$GCLOUD_HOME/completion.bash.inc" ] && . "$GCLOUD_HOME/completion.bash.inc"
 }
 
 #########################
