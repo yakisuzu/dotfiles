@@ -11,8 +11,8 @@ set smartcase
 " 編集に関する設定:"{{{
 " タブの画面上での幅 ts
 set tabstop=2
-" タブをスペースに展開しない (expandtab:展開する)
-set noexpandtab
+" タブをスペースに展開する (noexpandtab:展開しない)
+set expandtab
 " 自動的にインデントする (noautoindent:インデントしない)
 set autoindent
 " バックスペースでインデントや改行を削除できるようにする
