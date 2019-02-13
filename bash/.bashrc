@@ -33,6 +33,7 @@ function MACRC(){
   alias k="kubectl"
   alias kx="kubectx"
   complete -o default -F __start_kubectl k
+  . <(eksctl completion bash)
 }
 
 #########################

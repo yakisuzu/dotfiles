@@ -36,9 +36,6 @@ brew install bash-completion
 # cloud infra
 brew install awscli
 brew cask install google-cloud-sdk
-
-# kubernetes
-brew install kubernetes-cli kubectx
 ```
 
 #### after setting
@@ -72,19 +69,25 @@ jenv add /Library/Java/JavaVirtualMachines/jdk1.8.0_202.jdk/Contents/Home/
 jenv add /Library/Java/JavaVirtualMachines/openjdk-11.0.1.jdk/Contents/Home/
 ```
 
+### kubernetes
+```
+brew install kubernetes-cli kubectx
+
+# EKS
+brew tap weaveworks/tap
+brew install weaveworks/tap/eksctl
+
+## IAMの利用で必須
+## どこで実行してもいい
+go get -u -v github.com/kubernetes-sigs/aws-iam-authenticator/cmd/aws-iam-authenticator
+```
+
 ### Ricty
 ```
 brew tap sanemat/font
 brew install ricty
 cp -f /usr/local/opt/ricty/share/fonts/Ricty*.ttf ~/Library/Fonts/
 fc-cache -vf
-```
-
-### EKS
-```
-# EKSからIAMの利用で必須
-# どこで実行してもいい
-go get -u -v github.com/kubernetes-sigs/aws-iam-authenticator/cmd/aws-iam-authenticator
 ```
 
 
