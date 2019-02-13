@@ -31,6 +31,7 @@ function MACRC(){
   # kubenetes
   . <(kubectl completion bash)
   alias k="kubectl"
+  alias kx="kubectx"
   complete -o default -F __start_kubectl k
 }
 
