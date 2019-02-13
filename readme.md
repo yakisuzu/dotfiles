@@ -21,18 +21,24 @@ webログインし、プロフィールから登録
 [Homebrew](https://brew.sh/index_ja)  
 ```
 /usr/bin/ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
-brew tap caskroom/cask
+brew tap homebrew/cask-versions
 brew cask install java
 brew reinstall openssl
 brew install openssh git tree p7zip maven tig tmux
-brew cask install appcleaner alfred adobe-acrobat-reader macvim docker
+brew cask install appcleaner alfred adobe-acrobat-reader macvim docker java8
 
 # dependencies python3
 brew install readline xz openssl@1.1
 
+# completion for bash@3.2
+brew install bash-completion
+
 # cloud infra
 brew install awscli
 brew cask install google-cloud-sdk
+
+# kubernetes
+brew install kubernetes-cli kubectx
 ```
 
 #### after setting
@@ -42,6 +48,7 @@ alt+spaceを外す
 ### anyenv
 ```
 git clone https://github.com/riywo/anyenv ~/.anyenv
+anyenv install jenv
 anyenv install nodenv
 anyenv install pyenv
 anyenv install goenv
@@ -50,12 +57,19 @@ anyenv install rbenv
 mkdir -p $(anyenv root)/plugins
 git clone https://github.com/znz/anyenv-update.git $(anyenv root)/plugins/anyenv-update
 
-#nodenv install -l
-#nodenv install ${LTS}
-#nodenv global ${LTS}
+# 通常の使い方
+nodenv install -l
+nodenv install ${LTS}
+nodenv global ${LTS}
 
-#CONFIGURE_OPTS="--with-openssl=$(brew --prefix openssl@1.1)" pyenv install ${LTS}
-#...
+# python@3.Xは依存あり
+CONFIGURE_OPTS="--with-openssl=$(brew --prefix openssl@1.1)" pyenv install ${3.X}
+
+# install済みjavaのpath確認
+/usr/libexec/java_home
+# javaはbrewでいれ、参照を登録
+jenv add /Library/Java/JavaVirtualMachines/jdk1.8.0_202.jdk/Contents/Home/
+jenv add /Library/Java/JavaVirtualMachines/openjdk-11.0.1.jdk/Contents/Home/
 ```
 
 ### Ricty
@@ -64,6 +78,13 @@ brew tap sanemat/font
 brew install ricty
 cp -f /usr/local/opt/ricty/share/fonts/Ricty*.ttf ~/Library/Fonts/
 fc-cache -vf
+```
+
+### EKS
+```
+# EKSからIAMの利用で必須
+# どこで実行してもいい
+go get -u -v github.com/kubernetes-sigs/aws-iam-authenticator/cmd/aws-iam-authenticator
 ```
 
 

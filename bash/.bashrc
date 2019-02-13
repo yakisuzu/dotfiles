@@ -16,7 +16,10 @@ function MACRC(){
   export PATH="$HOME/.anyenv/bin:$PATH"
   eval "$(anyenv init -)"
 
-  # for mac alias
+  # bash@3.2 completion
+  [[ -r "/usr/local/etc/profile.d/bash_completion.sh" ]] && . "/usr/local/etc/profile.d/bash_completion.sh"
+
+  # vim
   alias vim="/Applications/MacVim.app/Contents/MacOS/Vim"
   alias gvim="open /Applications/MacVim.app"
 
@@ -24,6 +27,11 @@ function MACRC(){
   GCLOUD_HOME="/usr/local/Caskroom/google-cloud-sdk/latest/google-cloud-sdk"
   [ -e "$GCLOUD_HOME/path.bash.inc" ] && . "$GCLOUD_HOME/path.bash.inc"
   [ -e "$GCLOUD_HOME/completion.bash.inc" ] && . "$GCLOUD_HOME/completion.bash.inc"
+
+  # kubenetes
+  . <(kubectl completion bash)
+  alias k="kubectl"
+  complete -o default -F __start_kubectl k
 }
 
 #########################
