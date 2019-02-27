@@ -2,6 +2,7 @@
 	path = .gitconfig_local
 [core]
 	attributesfile = ~/.gitattributes
+	excludesfile = ~/.gitignore_local
 	editor = vim
 	quotepath = false
 	autocrlf = false
