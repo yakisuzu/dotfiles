@@ -24,7 +24,7 @@ webログインし、プロフィールから登録
 brew tap homebrew/cask-versions
 brew cask install java
 brew reinstall openssl
-brew install openssh git tree p7zip maven tig tmux
+brew install openssh git tree p7zip maven tig tmux anyenv
 brew cask install appcleaner alfred adobe-acrobat-reader macvim docker java8
 
 # dependencies python3
@@ -44,24 +44,37 @@ alt+spaceを外す
 
 ### anyenv
 ```
-git clone https://github.com/riywo/anyenv ~/.anyenv
-anyenv install jenv
 anyenv install nodenv
 anyenv install pyenv
 anyenv install goenv
 anyenv install rbenv
+anyenv install jenv
 
 mkdir -p $(anyenv root)/plugins
 git clone https://github.com/znz/anyenv-update.git $(anyenv root)/plugins/anyenv-update
 
-# 通常の使い方
-nodenv install -l
+# nodenv
+nodenv install -l | grep '^  [0-9]'
 nodenv install ${LTS}
 nodenv global ${LTS}
 
+# pyenv
+pyenv install -l | grep '^  2'
+pyenv install ${2.X}
+
+pyenv install -l | grep '^  3'
 # python@3.Xは依存あり
 CONFIGURE_OPTS="--with-openssl=$(brew --prefix openssl@1.1)" pyenv install ${3.X}
 
+# goenv
+goenv install -l
+goenv install ${1.X}
+
+# rbenv
+rbenv install -l | grep '^  2'
+rbenv install ${2.X}
+
+# jenv
 # install済みjavaのpath確認
 /usr/libexec/java_home
 # javaはbrewでいれ、参照を登録

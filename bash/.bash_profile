@@ -5,10 +5,6 @@ echo ------------------
 
 OS=$(uname -s) && echo OS=$OS `uname -m`
 if [[ "$OS" == "Darwin" ]]; then
-  # update
-  #brew update
-  #brew cask upgrade
-  #anyenv update
   echo
 elif [[ "${OS:1:7}" == "MSYS_NT" ]]; then
   # init ssh

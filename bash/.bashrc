@@ -13,7 +13,6 @@ export GOPATH=~/work/go
 function MACRC(){
   # PATH before
   # TODO tmuxで重複するが、順番がかわるので宣言しなおし
-  export PATH="$HOME/.anyenv/bin:$PATH"
   eval "$(anyenv init -)"
 
   # bash@3.2 completion
