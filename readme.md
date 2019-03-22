@@ -24,7 +24,7 @@ webログインし、プロフィールから登録
 brew tap homebrew/cask-versions
 brew cask install java
 brew reinstall openssl
-brew install openssh git tree p7zip maven tig tmux anyenv
+brew install openssh git tree p7zip maven tig tmux anyenv jq
 brew cask install appcleaner alfred adobe-acrobat-reader macvim docker java8
 
 # dependencies python3
@@ -76,10 +76,10 @@ rbenv install ${2.X}
 
 # jenv
 # install済みjavaのpath確認
-/usr/libexec/java_home
+/usr/libexec/java_home -V
 # javaはbrewでいれ、参照を登録
-jenv add /Library/Java/JavaVirtualMachines/jdk1.8.0_202.jdk/Contents/Home/
-jenv add /Library/Java/JavaVirtualMachines/openjdk-11.0.1.jdk/Contents/Home/
+jenv add /Library/Java/JavaVirtualMachines/${jdk1.8.XXXX.jdk}/Contents/Home/
+jenv add /Library/Java/JavaVirtualMachines/${openjdk-12.XXXX.jdk}/Contents/Home/
 ```
 
 ### kubernetes
