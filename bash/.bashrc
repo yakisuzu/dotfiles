@@ -16,7 +16,8 @@ function MACRC(){
   eval "$(anyenv init -)"
 
   # GNU
-  export PATH="/usr/local/opt/gnu-sed/libexec/gnubin:$PATH"
+  export PATH="`brew --prefix`/opt/coreutils/libexec/gnubin:$PATH"
+  export PATH="`brew --prefix`/opt/gnu-sed/libexec/gnubin:$PATH"
 
   # bash@3.2 completion
   [[ -r "/usr/local/etc/profile.d/bash_completion.sh" ]] && . "/usr/local/etc/profile.d/bash_completion.sh"
