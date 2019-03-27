@@ -24,7 +24,7 @@ webログインし、プロフィールから登録
 brew tap homebrew/cask-versions
 brew cask install java
 brew reinstall openssl
-brew install openssh git tree p7zip maven tig tmux anyenv jq
+brew install openssh git tree p7zip maven tig tmux anyenv jq gnu-sed
 brew cask install appcleaner alfred adobe-acrobat-reader macvim docker java8
 
 # dependencies python3
