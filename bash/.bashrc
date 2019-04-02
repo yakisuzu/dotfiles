@@ -12,6 +12,8 @@ export GOPATH=~/work/go
 #########################
 function MACRC(){
   # PATH before
+  # FIXME https://github.com/syndbg/goenv/issues/72
+  export GOENV_DISABLE_GOPATH=1
   # TODO tmuxで重複するが、順番がかわるので宣言しなおし
   eval "$(anyenv init -)"
 
