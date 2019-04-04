@@ -38,12 +38,9 @@ brew install awscli
 brew cask install google-cloud-sdk
 ```
 
-#### after setting
-システム環境設定 > キーボード  
-alt+spaceを外す  
-
 ### anyenv
 ```
+anyenv install --init
 anyenv install nodenv
 anyenv install pyenv
 anyenv install goenv
@@ -103,6 +100,15 @@ cp -f /usr/local/opt/ricty/share/fonts/Ricty*.ttf ~/Library/Fonts/
 fc-cache -vf
 ```
 
+#### after setting
+システム環境設定  
+- キーボード  
+キーリピート、認識までの時間を最速に  
+Spotlightのcommand+spaceを外す  
+半角カナ追加  
+ライブ変換、タイプミスを外す  
+フォントはRicty Regular  
+¥は\  
 
 # win
 ## git setting
