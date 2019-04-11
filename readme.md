@@ -109,6 +109,9 @@ fc-cache -vf
 
 ## after setting
 ### システム環境設定  
+- Dock  
+Dockを自動的に表示/非表示  
+
 - キーボード  
 キーリピート、認識までの時間を最速に  
 Spotlightのcommand+spaceを外す  
@@ -117,13 +120,19 @@ Spotlightのcommand+spaceを外す
 フォントはRicty Regular  
 ¥は\  
 
+- トラックパッド  
+調べる＆データ検出をオフに  
+
+- 日付と時刻  
+日付のオプション：日付を表示をオン  
+
 ### ターミナル
-起動時に開く：Pro
-Proをデフォルトに
-Ricty Bold 18pt.
-ウインドウサイズ 240 - 60
-コマンドを実行：tmux
-シェルの終了時：シェルが正常に終了した場合は閉じる
+起動時に開く：Pro  
+Proをデフォルトに  
+Ricty Bold 18pt.  
+ウインドウサイズ 240 - 60  
+コマンドを実行：tmux  
+シェルの終了時：シェルが正常に終了した場合は閉じる  
 
 # win
 ## git setting
