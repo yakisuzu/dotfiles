@@ -25,7 +25,8 @@ brew tap homebrew/cask-versions
 brew cask install java
 brew reinstall openssl
 brew install openssh git tree p7zip maven tig tmux anyenv jq coreutils gnu-sed
-brew cask install appcleaner alfred adobe-acrobat-reader macvim docker java8
+brew cask install appcleaner alfred adobe-acrobat-reader macvim docker java8 slack
+brew cask install chatwork mysqlworkbench
 
 # dependencies python3
 brew install readline xz openssl@1.1
@@ -56,6 +57,9 @@ nodenv install ${LTS}
 nodenv global ${LTS}
 
 # pyenv
+# mojave 1.14は依存あり
+sudo installer -pkg /Library/Developer/CommandLineTools/Packages/macOS_SDK_headers_for_macOS_10.14.pkg -target /
+
 pyenv install -l | grep '^  2'
 pyenv install ${2.X}
 
@@ -100,7 +104,10 @@ cp -f /usr/local/opt/ricty/share/fonts/Ricty*.ttf ~/Library/Fonts/
 fc-cache -vf
 ```
 
-#### after setting
+### DL list
+
+
+## after setting
 システム環境設定  
 - キーボード  
 キーリピート、認識までの時間を最速に  
