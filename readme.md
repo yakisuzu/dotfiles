@@ -108,7 +108,7 @@ fc-cache -vf
 
 
 ## after setting
-システム環境設定  
+### システム環境設定  
 - キーボード  
 キーリピート、認識までの時間を最速に  
 Spotlightのcommand+spaceを外す  
@@ -116,6 +116,14 @@ Spotlightのcommand+spaceを外す
 ライブ変換、タイプミスを外す  
 フォントはRicty Regular  
 ¥は\  
+
+### ターミナル
+起動時に開く：Pro
+Proをデフォルトに
+Ricty Bold 18pt.
+ウインドウサイズ 240 - 60
+コマンドを実行：tmux
+シェルの終了時：シェルが正常に終了した場合は閉じる
 
 # win
 ## git setting
