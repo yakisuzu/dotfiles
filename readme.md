@@ -140,14 +140,13 @@ Ricty Bold 18pt.
 
 ## Karabiner-Elements
 - Simple Modifications (HHKB)  
-  - grave_accent_and_tilde(`)  
-  left_command
-  - international2
-  right_command
-  - international3
-  かなキー
-  - international4
-  変数キー
+
+| 刻印      | 変更前                      | 変更後        |
+| ---      | ---                        | ---          |
+| HHKBマーク | grave_accent_and_tilde(\`) | left_command |
+| (/)      | international5             | 英数キー       |
+| ()       | international4             | かなキー       |
+| Kana     | international2             | right_command |
 
 - Complex Modifications (Rules)  
 karabiner://karabiner/assets/complex_modifications/import?url=https%3A%2F%2Frcmdnk.com%2FKE-complex_modifications%2Fjson%2Fpersonal_rcmdnk.json  
