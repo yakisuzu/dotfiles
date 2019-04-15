@@ -37,6 +37,10 @@ brew install bash-completion
 # cloud infra
 brew install awscli
 brew cask install google-cloud-sdk
+
+# gcp
+curl -o cloud_sql_proxy https://dl.google.com/cloudsql/cloud_sql_proxy.darwin.amd64
+chmod +x cloud_sql_proxy && mv cloud_sql_proxy /usr/local/bin/
 ```
 
 ### anyenv
