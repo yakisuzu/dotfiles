@@ -207,3 +207,20 @@ sudo apt install p7zip-full
 ## admin setting
 - gvim  
 - ConEmu  
+
+
+# IntelliJ IDEA
+## plugins
+- AWS CloudFormation
+- BashSupport
+- File Watchers
+- Go
+- IdeaVim
+- Ideolog
+- Kubernetes
+- Lombok
+- Makefile Support
+- NodeJS
+- Prettier
+- Scala
+- Vue.js
