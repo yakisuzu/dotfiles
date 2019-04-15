@@ -224,3 +224,4 @@ sudo apt install p7zip-full
 - Prettier
 - Scala
 - Vue.js
+- EnvFile
