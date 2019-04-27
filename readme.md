@@ -25,7 +25,7 @@ brew tap homebrew/cask-versions
 brew cask install java
 brew reinstall openssl
 brew install openssh git tree p7zip maven tig tmux anyenv jq coreutils gnu-sed
-brew cask install appcleaner alfred adobe-acrobat-reader macvim docker java8 slack jetbrains-toolbox calibre kindle karabiner-elements
+brew cask install appcleaner alfred adobe-acrobat-reader macvim docker corretto8 slack jetbrains-toolbox calibre kindle karabiner-elements
 brew cask install chatwork mysqlworkbench
 
 # dependencies python3
