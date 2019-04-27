@@ -215,6 +215,9 @@ sudo apt install p7zip-full
 
 
 # IntelliJ IDEA
+## setting repository
+https://github.com/yakisuzu/intellij-settings.git
+
 ## plugins
 - AWS CloudFormation
 - BashSupport
