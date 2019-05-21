@@ -1,0 +1,22 @@
+# anyenv
+#nodenv global 10.15.3
+#pyenv global 2.7.16
+#goenv global 1.8.7
+#rbenv global 2.6.2
+#jenv global 1.8
+
+# PATH
+## mysql
+#export PATH="$PATH:/Applications/MySQLWorkbench.app/Contents/MacOS"
+
+# AWS
+export AWS_PROFILE=default
+
+# gcloud
+gcloud config configurations activate default
+gcloud config configurations list
+
+# kubectl
+kubectl config set-context docker-for-desktop
+kubectl config get-contexts
+
