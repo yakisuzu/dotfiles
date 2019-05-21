@@ -5,7 +5,7 @@ scriptencoding utf-8
 " ウインドウの幅
 set columns=200
 " ウインドウの高さ
-set lines=40
+set lines=50
 " 画面を黒地に白にする (次行の先頭の " を削除すれば有効になる)
 " colorscheme evening
 colorscheme desert
@@ -19,6 +19,8 @@ endif
 if g:Is_mac()
   " 透過度
   set transparency=15
+  " フォントサイズ
+  set guifont=Ricty-Bold:h18
 endif
 
 " guiの挙動を変更 go

@@ -17,19 +17,19 @@ function MACRC(){
   # TODO tmuxで重複するが、順番がかわるので宣言しなおし
   eval "$(anyenv init -)"
 
-  # GNU
-  export PATH="`brew --prefix`/opt/coreutils/libexec/gnubin:$PATH"
-  export PATH="`brew --prefix`/opt/gnu-sed/libexec/gnubin:$PATH"
+  # homebrew
+  BREW_PREFIX="`brew --prefix`"
+  export PATH="$BREW_PREFIX/sbin:$PATH"
 
   # bash@3.2 completion
-  [[ -r "/usr/local/etc/profile.d/bash_completion.sh" ]] && . "/usr/local/etc/profile.d/bash_completion.sh"
+  [[ -r "$BREW_PREFIX/etc/profile.d/bash_completion.sh" ]] && . "$BREW_PREFIX/etc/profile.d/bash_completion.sh"
 
   # vim
   alias vim="/Applications/MacVim.app/Contents/MacOS/Vim"
   alias gvim="open /Applications/MacVim.app"
 
   # gcloud
-  GCLOUD_HOME="/usr/local/Caskroom/google-cloud-sdk/latest/google-cloud-sdk"
+  GCLOUD_HOME="$BREW_PREFIX/Caskroom/google-cloud-sdk/latest/google-cloud-sdk"
   [ -e "$GCLOUD_HOME/path.bash.inc" ] && . "$GCLOUD_HOME/path.bash.inc"
   [ -e "$GCLOUD_HOME/completion.bash.inc" ] && . "$GCLOUD_HOME/completion.bash.inc"
 
@@ -39,6 +39,10 @@ function MACRC(){
   alias kx="kubectx"
   complete -o default -F __start_kubectl k
   . <(eksctl completion bash)
+
+  # GNU
+  export PATH="$BREW_PREFIX/opt/gnu-sed/libexec/gnubin:$PATH"
+  export PATH="$BREW_PREFIX/opt/coreutils/libexec/gnubin:$PATH"
 }
 
 #########################
