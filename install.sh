@@ -31,7 +31,7 @@ echo --------------------
 echo init bash
 LINK_OVERRIDE "$PWD/bash/.bash_profile" "$HOME/.bash_profile"
 LINK_OVERRIDE "$PWD/bash/.bashrc" "$HOME/.bashrc"
-COPY_NOT_EXISTS "$PWD/git/.bashrc_local" "$HOME/.bashrc_local"
+COPY_NOT_EXISTS "$PWD/bash/.bashrc_local" "$HOME/.bashrc_local"
 LINK_OVERRIDE "$PWD/bash/.inputrc" "$HOME/.inputrc"
 LINK_OVERRIDE "$PWD/bash/.tmux.conf" "$HOME/.tmux.conf"
 
@@ -46,6 +46,7 @@ echo --------------------
 echo init vim
 LINK_OVERRIDE "$PWD/vim/gvimrc.vim" "$HOME/_gvimrc"
 LINK_OVERRIDE "$PWD/vim/vimrc.vim" "$HOME/_vimrc"
+mkdir -p "$HOME/.vim"
 LINK_OVERRIDE "$PWD/vim/.vim/after" "$HOME/.vim/after"
 LINK_OVERRIDE "$PWD/vim/.vim/ftdetect" "$HOME/.vim/ftdetect"
 LINK_OVERRIDE "$PWD/vim/.vim/syntax" "$HOME/.vim/syntax"

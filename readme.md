@@ -3,7 +3,7 @@
 `ssh-keygen`  
 
 ### mac
-`cat ~/.ssh/id_rsa.pub | pbcopy`
+`cat ~/.ssh/id_rsa.pub | pbcopy`  
 
 ## add github ssh key
 webログインし、プロフィールから登録  
@@ -118,10 +118,10 @@ Dockを自動的に表示/非表示
 最近使ったアプリケーションをDockに表示しない  
 
 - セキュリティとプライバシー  
-スリープとスクリーンセーバの解除にパスワードを要求 開始後：1分後  
+スリープとスクリーンセーバの解除にパスワードを要求 開始後：5分後  
 
 - キーボード  
-外部キーボードのF1、F2などのキーを標準のファンクションキーとして使用
+外部キーボードのF1、F2などのキーを標準のファンクションキーとして使用  
 キーリピート、認識までの時間を最速に  
 Spotlightのcommand+spaceを外す  
 半角カナ追加  
@@ -156,6 +156,7 @@ Ricty Bold 18pt.
 - Complex Modifications (Rules)  
 karabiner://karabiner/assets/complex_modifications/import?url=https%3A%2F%2Frcmdnk.com%2FKE-complex_modifications%2Fjson%2Fpersonal_rcmdnk.json  
 `EISU sends EISU ESC ESC when language is ja`  
+
 - Devices  
 Disable the ... でHHKBをチェック  
 
