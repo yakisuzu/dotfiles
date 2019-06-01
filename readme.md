@@ -21,11 +21,12 @@ webログインし、プロフィールから登録
 [Homebrew](https://brew.sh/index_ja)  
 ```
 /usr/bin/ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
-brew tap homebrew/cask-versions
-brew cask install java
+#brew tap homebrew/cask-versions
+brew tap AdoptOpenJDK/openjdk
+brew cask install adoptopenjdk11 adoptopenjdk8
 brew reinstall openssl
 brew install openssh git tree p7zip maven tig tmux anyenv jq coreutils gnu-sed
-brew cask install appcleaner alfred adobe-acrobat-reader macvim docker corretto8 slack jetbrains-toolbox calibre kindle karabiner-elements
+brew cask install appcleaner alfred adobe-acrobat-reader macvim docker slack jetbrains-toolbox calibre kindle karabiner-elements
 brew cask install chatwork mysqlworkbench
 
 # dependencies python3
@@ -83,8 +84,8 @@ rbenv install ${2.X}
 # install済みjavaのpath確認
 /usr/libexec/java_home -V
 # javaはbrewでいれ、参照を登録
-jenv add /Library/Java/JavaVirtualMachines/${jdk1.8.XXXX.jdk}/Contents/Home/
-jenv add /Library/Java/JavaVirtualMachines/${openjdk-12.XXXX.jdk}/Contents/Home/
+jenv add /Library/Java/JavaVirtualMachines/adoptopenjdk-11.jdk/Contents/Home/
+jenv add /Library/Java/JavaVirtualMachines/adoptopenjdk-8.jdk/Contents/Home/
 ```
 
 ### kubernetes
