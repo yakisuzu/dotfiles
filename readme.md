@@ -25,9 +25,12 @@ webログインし、プロフィールから登録
 brew tap AdoptOpenJDK/openjdk
 brew cask install adoptopenjdk11 adoptopenjdk8
 brew reinstall openssl
-brew install openssh git tree p7zip maven tig tmux anyenv jq coreutils gnu-sed
+brew install openssh git tree p7zip maven sbt tig tmux anyenv jq coreutils gnu-sed
 brew cask install appcleaner alfred adobe-acrobat-reader macvim docker slack jetbrains-toolbox calibre kindle karabiner-elements
+
 brew cask install chatwork mysqlworkbench
+brew tap heroku/brew
+brew install heroku
 
 # dependencies python3
 brew install readline xz openssl@1.1
