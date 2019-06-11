@@ -17,6 +17,7 @@ OS=
 
 [[ ! "$PATH" =~ dotfiles ]] && export PATH="$PATH:~/dotfiles/bin"
 
+echo ----
 echo PATH
 echo ----
 echo "$PATH" | awk 'BEGIN{FS=":";OFS="\n"}{$1=$1;print $0}'

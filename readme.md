@@ -50,14 +50,25 @@ chmod +x cloud_sql_proxy && mv cloud_sql_proxy /usr/local/bin/
 ### anyenv
 ```
 anyenv install --init
+anyenv install goenv
+anyenv install jenv
 anyenv install nodenv
 anyenv install pyenv
-anyenv install goenv
 anyenv install rbenv
-anyenv install jenv
 
 mkdir -p $(anyenv root)/plugins
 git clone https://github.com/znz/anyenv-update.git $(anyenv root)/plugins/anyenv-update
+
+# goenv
+goenv install -l
+goenv install ${1.X}
+
+# jenv
+# install済みjavaのpath確認
+/usr/libexec/java_home -V
+# javaはbrewでいれ、参照を登録
+jenv add /Library/Java/JavaVirtualMachines/adoptopenjdk-11.jdk/Contents/Home/
+jenv add /Library/Java/JavaVirtualMachines/adoptopenjdk-8.jdk/Contents/Home/
 
 # nodenv
 nodenv install -l | grep '^  [0-9]'
@@ -75,20 +86,9 @@ pyenv install -l | grep '^  3'
 # python@3.Xは依存あり
 CONFIGURE_OPTS="--with-openssl=$(brew --prefix openssl@1.1)" pyenv install ${3.X}
 
-# goenv
-goenv install -l
-goenv install ${1.X}
-
 # rbenv
 rbenv install -l | grep '^  2'
 rbenv install ${2.X}
-
-# jenv
-# install済みjavaのpath確認
-/usr/libexec/java_home -V
-# javaはbrewでいれ、参照を登録
-jenv add /Library/Java/JavaVirtualMachines/adoptopenjdk-11.jdk/Contents/Home/
-jenv add /Library/Java/JavaVirtualMachines/adoptopenjdk-8.jdk/Contents/Home/
 ```
 
 ### kubernetes

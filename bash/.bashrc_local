@@ -1,9 +1,13 @@
+echo ------------------
+echo read .bashrc_local
+echo ------------------
+
 # anyenv
-#nodenv global 10.15.3
+#goenv global 1.12.5
+#jenv global 11.0
+#nodenv global 12.4.0
 #pyenv global 2.7.16
-#goenv global 1.8.7
-#rbenv global 2.6.2
-#jenv global 1.8
+#rbenv global 2.6.3
 
 # PATH
 ## mysql
@@ -13,10 +17,15 @@
 export AWS_PROFILE=default
 
 # gcloud
+echo ------
+echo gcloud
+echo ------
 gcloud config configurations activate default
 gcloud config configurations list
 
 # kubectl
+echo -------
+echo kubectl
+echo -------
 kubectl config set-context docker-for-desktop
 kubectl config get-contexts
-
