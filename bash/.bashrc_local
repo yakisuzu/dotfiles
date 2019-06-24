@@ -27,5 +27,5 @@ gcloud config configurations list
 echo -------
 echo kubectl
 echo -------
-kubectl config set-context docker-for-desktop
+kubectl config use-context docker-for-desktop
 kubectl config get-contexts
