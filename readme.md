@@ -29,8 +29,6 @@ brew install openssh git tree p7zip maven sbt tig tmux anyenv jq coreutils gnu-s
 brew cask install appcleaner alfred adobe-acrobat-reader macvim docker slack jetbrains-toolbox calibre kindle karabiner-elements
 
 brew cask install chatwork mysqlworkbench
-brew tap heroku/brew
-brew install heroku
 
 # dependencies python3
 brew install readline xz openssl@1.1
@@ -67,8 +65,10 @@ goenv install ${1.X}
 # install済みjavaのpath確認
 /usr/libexec/java_home -V
 # javaはbrewでいれ、参照を登録
-jenv add /Library/Java/JavaVirtualMachines/adoptopenjdk-11.jdk/Contents/Home/
-jenv add /Library/Java/JavaVirtualMachines/adoptopenjdk-8.jdk/Contents/Home/
+jenv add $(/usr/libexec/java_home -v 1.8)
+jenv add $(/usr/libexec/java_home -v 11)
+# JAVA_HOMEの有効化
+jenv enable-plugin export
 
 # nodenv
 nodenv install -l | grep '^  [0-9]'
@@ -93,7 +93,7 @@ rbenv install ${2.X}
 
 ### kubernetes
 ```
-brew install kubernetes-cli kubectx
+brew install kubernetes-cli kubectx kustomize skaffold
 
 # EKS
 brew tap weaveworks/tap
