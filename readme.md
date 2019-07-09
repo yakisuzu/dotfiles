@@ -58,7 +58,7 @@ mkdir -p $(anyenv root)/plugins
 git clone https://github.com/znz/anyenv-update.git $(anyenv root)/plugins/anyenv-update
 
 # goenv
-goenv install -l
+goenv install -l | tail -3
 goenv install ${1.X}
 
 # jenv
@@ -71,23 +71,24 @@ jenv add $(/usr/libexec/java_home -v 11)
 jenv enable-plugin export
 
 # nodenv
-nodenv install -l | grep '^  [0-9]'
+nodenv install -l | grep '^  8\.' | tail -3
+nodenv install -l | grep '^  10\.' | tail -3
+nodenv install -l | grep '^  12\.' | tail -3
 nodenv install ${LTS}
-nodenv global ${LTS}
 
 # pyenv
 # mojave 1.14は依存あり
 sudo installer -pkg /Library/Developer/CommandLineTools/Packages/macOS_SDK_headers_for_macOS_10.14.pkg -target /
 
-pyenv install -l | grep '^  2'
+pyenv install -l | grep '^  2' | tail -3
 pyenv install ${2.X}
 
-pyenv install -l | grep '^  3'
+pyenv install -l | grep '^  3' | tail -3
 # python@3.Xは依存あり
 CONFIGURE_OPTS="--with-openssl=$(brew --prefix openssl@1.1)" pyenv install ${3.X}
 
 # rbenv
-rbenv install -l | grep '^  2'
+rbenv install -l | grep '^  2' | tail -3
 rbenv install ${2.X}
 ```
 
