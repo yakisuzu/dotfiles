@@ -180,6 +180,9 @@ Disable the ... でHHKBをチェック
 - Checkout as-is, commit as-is  
 - Enable experimental, build-in app -i/-p  
 
+## 管理者として実行（ショートカット > 詳細設定）
+- コマンドプロンプト  
+
 ## dotfiles install
 ```
 cd %USERPROFILE% && git clone https://github.com/yakisuzu/dotfiles.git  
@@ -189,7 +192,7 @@ powershell -ExecutionPolicy unrestricted %USERPROFILE%\dotfiles\utility\set_path
 
 ## bash setting
 ### msys2
-[msys2](http://sourceforge.net/projects/msys2/files/latest/download)  
+[msys2](https://www.msys2.org/)  
 ```
 pacman -Syuu  
 pacman -Suu  
@@ -226,7 +229,7 @@ sudo apt install p7zip-full
 #### win7
 [WMF5.1](https://go.microsoft.com/fwlink/?linkid=839523)  
 
-## admin setting
+## 管理者として実行（ショートカット > 詳細設定）
 - gvim  
 - ConEmu  
 
