@@ -213,21 +213,22 @@ sudo apt install p7zip-full
 
 ### DL list
 #### link
-[Ctrl2Cap](http://download.sysinternals.com/files/Ctrl2Cap.zip)  
-[Stickies](http://www.zhornsoftware.co.uk/support/kb00013-7.1e.exe)  
-[Docker](https://download.docker.com/win/stable/Docker%20for%20Windows%20Installer.exe)  
+- [Ctrl2Cap](http://download.sysinternals.com/files/Ctrl2Cap.zip)  
+  - `.\ctrl2cap.exe /install`  
+- [Stickies](http://www.zhornsoftware.co.uk/support/kb00013-7.1e.exe)  
+- [Docker](https://download.docker.com/win/stable/Docker%20for%20Windows%20Installer.exe)  
 
 #### site
-[OpenSSH](https://github.com/PowerShell/Win32-OpenSSH/releases/latest)  
-[vim](https://github.com/koron/vim-kaoriya/releases/latest)  
-[ConEmu](https://github.com/Maximus5/ConEmu/releases/latest)  
-[xdoc2txt](http://ebstudio.info/home/xdoc2txt.html)  
-[Intellij IDEA](https://www.jetbrains.com/idea/download/download-thanks.html?platform=windows)  
-[NVM](https://github.com/coreybutler/nvm-windows/releases/latest)  
-[jq](https://stedolan.github.io/jq/download/)  
+- [OpenSSH](https://github.com/PowerShell/Win32-OpenSSH/releases/latest)  
+- [vim](https://github.com/koron/vim-kaoriya/releases/latest)  
+- [ConEmu](https://github.com/Maximus5/ConEmu/releases/latest)  
+- [xdoc2txt](http://ebstudio.info/home/xdoc2txt.html)  
+- [Intellij IDEA](https://www.jetbrains.com/idea/download/download-thanks.html?platform=windows)  
+- [NVM](https://github.com/coreybutler/nvm-windows/releases/latest)  
+- [jq](https://stedolan.github.io/jq/download/)  
 
 #### win7
-[WMF5.1](https://go.microsoft.com/fwlink/?linkid=839523)  
+- [WMF5.1](https://go.microsoft.com/fwlink/?linkid=839523)  
 
 ## 管理者として実行（ショートカット > 詳細設定）
 - gvim  
