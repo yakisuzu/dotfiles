@@ -5,6 +5,9 @@
 ### mac
 `cat ~/.ssh/id_rsa.pub | pbcopy`  
 
+### win
+`more %USERPROFILE%\.ssh\id_rsa.pub | clip`  
+
 ## add github ssh key
 webログインし、プロフィールから登録  
 
@@ -167,7 +170,15 @@ Disable the ... でHHKBをチェック
 
 # win
 ## git setting
-[git](https://github.com/git-for-windows/git/releases/latest)  
+- [git](https://github.com/git-for-windows/git/releases/latest)  
+- Componensts  
+  - Git LFS  
+  - Associate .git*  
+  - Associate .sh  
+  - Use a True Type Font  
+  - Check daily for Git  
+- Checkout as-is, commit as-is  
+- Enable experimental, build-in app -i/-p  
 
 ## dotfiles install
 ```
