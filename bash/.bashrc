@@ -84,8 +84,10 @@ PS1='\[\033[36m\]\u@\h \[\033[31m\]\w\[\033[0m\]\n$ '
 alias lsa='ls -lah'
 alias vi='vim -u NONE'
 
-[[ "$OS" == "Darwin" ]] && MACRC
-[[ "$OS_WIN" == "MSYS_NT" ]] && WINRC
+case "$OS_NAME" in
+  "Darwin" ) MACRC ;;
+  "MSYS_NT" | "MINGW_NT" ) WINRC ;;
+esac
 
 [ -e ~/.bashrc_local ] && . ~/.bashrc_local
 # sample
