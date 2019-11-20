@@ -220,12 +220,16 @@ sudo apt install p7zip-full
 
 #### site
 - [OpenSSH](https://github.com/PowerShell/Win32-OpenSSH/releases/latest)  
-- [vim](https://github.com/koron/vim-kaoriya/releases/latest)  
-- [ConEmu](https://github.com/Maximus5/ConEmu/releases/latest)  
+  - `mv OpenSSH-Win64/ /c/Program\ Files/`  
 - [xdoc2txt](http://ebstudio.info/home/xdoc2txt.html)  
-- [Intellij IDEA](https://www.jetbrains.com/idea/download/download-thanks.html?platform=windows)  
-- [NVM](https://github.com/coreybutler/nvm-windows/releases/latest)  
+  - `mv xdoc2txt.exe ~/dotfiles/bin/`  
 - [jq](https://stedolan.github.io/jq/download/)  
+  - `mv jq-win64.exe ~/dotfiles/bin/jq.exe`  
+- [vim](https://github.com/koron/vim-kaoriya/releases/latest)  
+  - `mv vim81-kaoriya-win64/ /c/Program\ Files/vim-kaoriya`  
+- [ConEmu](https://github.com/Maximus5/ConEmu/releases/latest)  
+- [Intellij IDEA](https://www.jetbrains.com/toolbox-app/)  
+- [NVM](https://github.com/coreybutler/nvm-windows/releases/latest)  
 
 #### win7
 - [WMF5.1](https://go.microsoft.com/fwlink/?linkid=839523)  
