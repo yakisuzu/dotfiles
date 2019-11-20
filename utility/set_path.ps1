@@ -24,16 +24,15 @@ Class App {
 }
 
 $Apps = [App[]](
+  [App]::new("vim", $ProgramFiles + "\vim-kaoriya"),
   [App]::new("git", $ProgramFiles + "\Git\cmd"),
   [App]::new("OpenSSH", $ProgramFiles + "\OpenSSH-Win64"),
-  [App]::new("vim", $ProgramFiles + "\vim80-kaoriya-win64"),
   [App]::new("ConEmu", $SystemDrive + "\ConEmu"),
   [App]::new("msys2/root", $SystemDrive + "\msys64"),
   [App]::new("msys2/bin", $SystemDrive + "\msys64\usr\bin"),
   [App]::new("java", $JAVA_HOME + "\bin"),
   [App]::new("node/nvm", $NVM_HOME),
   [App]::new("node/node", $NVM_SYMLINK),
-  #[App]::new("Docker", $ProgramFiles + "\Docker Toolbox"),
   [App]::new("Docker", $ProgramFiles + "\Docker\Docker\Resources\bin"),
   [App]::new("dotfiles", $HOME + "\dotfiles\bin")
 )

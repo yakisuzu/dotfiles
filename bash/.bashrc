@@ -47,15 +47,14 @@ function MACRC(){
 
 #########################
 function WINRC(){
-
   export PROGRAMFILES86="$PROGRAMFILES (x86)"
   export JAVA_HOME=$PROGRAMFILES/Java/jdk
 
   # PATH before
+  export PATH=$PROGRAMFILES/vim-kaoriya:$PATH
   export PATH=$PROGRAMFILES/Git/cmd:$PATH
   export PATH=$PROGRAMFILES/OpenSSH-Win64:$PATH
-  export PATH=$PROGRAMFILES/vim80-kaoriya-win64:$PATH
-  export PATH=$PROGRAMFILES/Amazon/AWSCLI:$PATH
+  #export PATH=$PROGRAMFILES/Amazon/AWSCLI:$PATH
 
   # PATH after
   export PATH=$PATH:$JAVA_HOME/bin
@@ -69,7 +68,7 @@ function WINRC(){
 
   # for windows alias
   alias ls='ls --color=auto --show-control-chars'
-  alias ps='powershell -ExecutionPolicy unrestricted'
+  alias ps1='powershell -ExecutionPolicy unrestricted'
 }
 
 #########################
