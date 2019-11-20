@@ -4,14 +4,15 @@ echo read .bash_profile
 echo ------------------
 
 OS=$(uname -s) && echo OS=$OS `uname -m`
+OS_WIN=$(echo $OS | sed 's/[\.0-9-]//g')
 if [[ "$OS" == "Darwin" ]]; then
   echo
-elif [[ "${OS:1:7}" == "MSYS_NT" ]]; then
+elif [[ "$OS_WIN" == "MSYS_NT" ]]; then
+  echo OS_WIN=$OS_WIN
   # init ssh
   eval `ssh-agent` > /dev/null
   ssh-add.exe ~/.ssh/id_rsa 2> /dev/null
 fi
-OS=
 
 [ -f ~/.bashrc ] && . ~/.bashrc
 

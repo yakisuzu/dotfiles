@@ -66,11 +66,10 @@ function WINRC(){
   # sed drive path
   TMP_DRIVE=$(echo $SYSTEMDRIVE | cut -c 1 | tr '[A-Z]' '[a-z]')
   export PATH=$(echo $PATH | sed "s#$SYSTEMDRIVE#/${TMP_DRIVE}#g" | sed "s#\\\\#/#g")
-  unset TMP_DRIVE
 
   # for windows alias
   alias ls='ls --color=auto --show-control-chars'
-  alias powershell='powershell -ExecutionPolicy unrestricted'
+  alias ps='powershell -ExecutionPolicy unrestricted'
 }
 
 #########################
@@ -86,10 +85,8 @@ PS1='\[\033[36m\]\u@\h \[\033[31m\]\w\[\033[0m\]\n$ '
 alias lsa='ls -lah'
 alias vi='vim -u NONE'
 
-OS=$(uname -s)
 [[ "$OS" == "Darwin" ]] && MACRC
-[[ "${OS:1:7}" == "MSYS_NT" ]] && WINRC
-OS=
+[[ "$OS_WIN" == "MSYS_NT" ]] && WINRC
 
 [ -e ~/.bashrc_local ] && . ~/.bashrc_local
 # sample
