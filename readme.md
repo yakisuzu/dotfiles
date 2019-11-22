@@ -227,9 +227,12 @@ sudo apt install p7zip-full
   - `mv jq-win64.exe ~/dotfiles/bin/jq.exe`  
 - [vim](https://github.com/koron/vim-kaoriya/releases/latest)  
   - `mv vim81-kaoriya-win64/ /c/Program\ Files/vim-kaoriya`  
+- [nvm-windows](https://github.com/coreybutler/nvm-windows/releases/latest)  
+  - DL `nvm-setup.zip` and install  
+  - `nvm list available`  
+  - `nvm install ${LTS} && nvm use ${LTS}`  
 - [ConEmu](https://github.com/Maximus5/ConEmu/releases/latest)  
-- [Intellij IDEA](https://www.jetbrains.com/toolbox-app/)  
-- [NVM](https://github.com/coreybutler/nvm-windows/releases/latest)  
+- [JetBrains TOOLBOX](https://www.jetbrains.com/toolbox-app/)  
 
 #### win7
 - [WMF5.1](https://go.microsoft.com/fwlink/?linkid=839523)  
