@@ -74,24 +74,20 @@ jenv add $(/usr/libexec/java_home -v 11)
 jenv enable-plugin export
 
 # nodenv
-nodenv install -l | grep '^  8\.' | tail -3
-nodenv install -l | grep '^  10\.' | tail -3
-nodenv install -l | grep '^  12\.' | tail -3
+nodenv install -l | grep '^8\.' | tail -3
+nodenv install -l | grep '^10\.' | tail -3
+nodenv install -l | grep '^12\.' | tail -3
 nodenv install ${LTS}
 
 # pyenv
-# mojave 1.14は依存あり
-sudo installer -pkg /Library/Developer/CommandLineTools/Packages/macOS_SDK_headers_for_macOS_10.14.pkg -target /
-
 pyenv install -l | grep '^  2' | tail -3
 pyenv install ${2.X}
 
 pyenv install -l | grep '^  3' | tail -3
-# python@3.Xは依存あり
-CONFIGURE_OPTS="--with-openssl=$(brew --prefix openssl@1.1)" pyenv install ${3.X}
+pyenv install ${3.X}
 
 # rbenv
-rbenv install -l | grep '^  2' | tail -3
+rbenv install -l | grep '^2' | tail -3
 rbenv install ${2.X}
 ```
 
@@ -129,20 +125,31 @@ Dockを自動的に表示/非表示
 スリープとスクリーンセーバの解除にパスワードを要求 開始後：5分後  
 
 - キーボード  
-外部キーボードのF1、F2などのキーを標準のファンクションキーとして使用  
-右下の修飾キー => Caps LockをCommandに  
-キーリピート、認識までの時間を最速に  
-Spotlightのcommand+spaceを外す  
-半角カナ追加  
-ライブ変換、タイプミスを外す  
-フォントはRicty Regular  
-¥は\  
+  - キーボード  
+  キーリピート、認識までの時間を最速に  
+  右下の修飾キー => Caps LockをCommandに  
+    - ファンクションとタッチバーについてはモデルで設定が異なる  
+    外部キーボードのF1、F2などのキーを標準のファンクションキーとして使用  
+    TouchBarに表示する項目: F1、F2などのキー  
+    Fnキーを押して: ControlStripを表示  
+  - ユーザ辞書  
+  文頭を自動的に大文字にしない  
+  - ショートカット  
+  Spotlightのcommand+spaceを外す  
+  - 入力ソース  
+  半角カナ追加  
+  ライブ変換、タイプミスを外す  
+  フォントはRicty Regular  
+  ¥は\  
 
 - トラックパッド  
 調べる＆データ検出をオフに  
 
 - 日付と時刻  
 日付のオプション：日付を表示をオン  
+
+- Touch ID  
+
 
 ### ターミナル
 起動時に開く：Pro  

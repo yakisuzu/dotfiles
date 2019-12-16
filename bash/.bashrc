@@ -43,6 +43,11 @@ function MACRC(){
   # GNU
   export PATH="$BREW_PREFIX/opt/gnu-sed/libexec/gnubin:$PATH"
   export PATH="$BREW_PREFIX/opt/coreutils/libexec/gnubin:$PATH"
+
+  # openssl
+  export PATH="$BREW_PREFIX/opt/openssl@1.1/bin:$PATH"
+  export LDFLAGS="-L$BREW_PREFIX/opt/openssl@1.1/lib"
+  export CPPFLAGS="-I$BREW_PREFIX/opt/openssl@1.1/include"
 }
 
 #########################
