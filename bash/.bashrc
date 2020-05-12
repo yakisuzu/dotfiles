@@ -9,6 +9,8 @@ export LESSCHARSET=utf-8
 export GOPATH=~/work/go
 [[ ! "$PATH" =~ work/go ]] && export PATH="$PATH:$GOPATH/bin"
 
+export DOCKER_BUILDKIT=1
+
 #########################
 function MACRC(){
   # PATH before
