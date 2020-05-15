@@ -40,7 +40,7 @@ brew install readline xz openssl@1.1
 brew install bash-completion
 
 # cloud infra
-brew install awscli
+brew install awscli@1
 brew cask install google-cloud-sdk
 
 # gcp
@@ -264,6 +264,7 @@ https://github.com/yakisuzu/intellij-settings.git
 - BashSupport
 - File Watchers
 - Go
+- Python
 - IdeaVim
 - Ideolog
 - Kubernetes
