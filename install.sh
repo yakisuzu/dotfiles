@@ -51,10 +51,6 @@ LINK_OVERRIDE "$PWD/vim/.vim/after" "$HOME/.vim/after"
 LINK_OVERRIDE "$PWD/vim/.vim/ftdetect" "$HOME/.vim/ftdetect"
 LINK_OVERRIDE "$PWD/vim/.vim/syntax" "$HOME/.vim/syntax"
 
-echo --------------------
-echo init lint
-LINK_OVERRIDE "$PWD/lint/.eslintrc.json" "$HOME/.eslintrc.json"
-
 unset LINK_OVERRIDE
 unset COPY_NOT_EXISTS
 popd > /dev/null

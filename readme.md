@@ -200,7 +200,7 @@ karabiner://karabiner/assets/complex_modifications/import?url=https%3A%2F%2Frcmd
 ```
 cd %USERPROFILE% && git clone https://github.com/yakisuzu/dotfiles.git  
 .\dotfiles\install.bat  
-powershell -ExecutionPolicy unrestricted %USERPROFILE%\dotfiles\utility\set_path.ps1  
+powershell -ExecutionPolicy unrestricted %USERPROFILE%\dotfiles\bin\update_path.ps1  
 ```
 
 ## bash setting
