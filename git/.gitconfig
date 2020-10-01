@@ -7,6 +7,8 @@
 	quotepath = false
 	autocrlf = false
 	ignorecase = false
+[pull]
+	rebase = false
 [push]
 	default = simple
 [diff]
