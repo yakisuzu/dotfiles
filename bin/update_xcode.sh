@@ -1,4 +1,7 @@
 #!/bin/bash -xe
 
-sudo rm -rf $(xcode-select -print-path)
-xcode-select --install
+P=$(xcode-select -print-path)
+if [ "$P" != "" ]; then
+  sudo rm -rf $P
+  xcode-select --install
+fi
