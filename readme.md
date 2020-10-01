@@ -74,8 +74,6 @@ jenv add $(/usr/libexec/java_home -v 11)
 jenv enable-plugin export
 
 # nodenv
-nodenv install -l | grep '^8\.' | tail -3
-nodenv install -l | grep '^10\.' | tail -3
 nodenv install -l | grep '^12\.' | tail -3
 nodenv install ${LTS}
 
