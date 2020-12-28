@@ -13,8 +13,14 @@ echo ------------------
 ## mysql
 #export PATH="$PATH:/Applications/MySQLWorkbench.app/Contents/MacOS"
 
+## AWS@1
+#BREW_PREFIX=`brew --prefix`
+#export PATH="$BREW_PREFIX/opt/awscli@1/bin:$PATH"
+#[ -e "$BREW_PREFIX/opt/awscli@1/etc/bash_completion.d/" ] && . $BREW_PREFIX/opt/awscli@1/etc/bash_completion.d/*
+
 # AWS
 export AWS_PROFILE=default
+
 
 # gcloud
 echo ------

@@ -7,6 +7,8 @@
 	quotepath = false
 	autocrlf = false
 	ignorecase = false
+[advice]
+	ignoredHook = false
 [pull]
 	rebase = false
 [push]

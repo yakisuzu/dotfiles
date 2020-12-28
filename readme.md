@@ -40,7 +40,7 @@ brew install readline xz openssl@1.1
 brew install bash-completion
 
 # cloud infra
-brew install awscli@1
+brew install awscli
 brew cask install google-cloud-sdk
 
 # gcp

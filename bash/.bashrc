@@ -31,10 +31,6 @@ function MACRC(){
   alias vim="/Applications/MacVim.app/Contents/MacOS/Vim"
   alias gvim="open /Applications/MacVim.app"
 
-  # AWS@1
-  export PATH="$BREW_PREFIX/opt/awscli@1/bin:$PATH"
-  [ -e "$BREW_PREFIX/opt/awscli@1/etc/bash_completion.d/" ] && . $BREW_PREFIX/opt/awscli@1/etc/bash_completion.d/*
-
   # gcloud
   GCLOUD_HOME="$BREW_PREFIX/Caskroom/google-cloud-sdk/latest/google-cloud-sdk"
   [ -e "$GCLOUD_HOME/path.bash.inc" ] && . "$GCLOUD_HOME/path.bash.inc"
