@@ -55,6 +55,10 @@ function! s:PackInitPlugins() abort "{{{
   call minpac#add('fatih/vim-go', op)
   "}}}
 endfunction "}}}
+function! s:PackUpdate() abort "{{{
+  " 重いので任意のタイミングで実行 + 初回だけ実行
+  call minpac#update('', {'do': 'echom "Finish plugins update. do :qa and restart"'})
+endfunction "}}}
 function! s:PackLoadPlugins() abort "{{{
   function! s:hook_vital() "{{{
     let g:VMfile = vital#vital#import('System.File')
@@ -305,11 +309,6 @@ function! s:PackLoadPlugins() abort "{{{
     autocmd FileType go packadd vim-go | call s:hook_vim_go()
   augroup END
 endfunction "}}}
-function! s:PackUpdateWithLoad() abort "{{{
-  " 重いので任意のタイミングで実行 + 初回だけ実行
-  call minpac#update('', {'do': function('s:PackLoadPlugins')})
-  " TODO Vim(call):E118: 関数の引数が多過ぎます: <SNR>4_PackLoadPlugins
-endfunction "}}}
 " minpac install "{{{
 let s:requireMinpacInitialized = empty(glob(g:dir_minpac_opt))
 if s:requireMinpacInitialized
@@ -326,14 +325,14 @@ if !s:PackInitMinpac()
 endif "}}}
 " minpac plugins initialize load "{{{
 if s:requireMinpacInitialized
-  call s:PackInitPlugins() | call s:PackUpdateWithLoad()
+  call s:PackInitPlugins() | call s:PackUpdate()
 else
   call s:PackLoadPlugins()
 endif "}}}
 
 
 " minpac command
-command! PackUpdate call s:PackInitPlugins() | call s:PackUpdateWithLoad()
+command! PackUpdate call s:PackInitPlugins() | call s:PackUpdate() | call s:PackLoadPlugins()
 command! PackClean  call s:PackInitPlugins() | call minpac#clean()
 command! PackStatus call minpac#status()
 

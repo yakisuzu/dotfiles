@@ -62,7 +62,7 @@ set noswapfile
 "---------------------------------------------------------------------------
 " プラットホーム依存の特別な設定:"{{{
 " WinではPATHに$VIMが含まれていないときにexeを見つけ出せないので修正
-if has('mac')
+if g:Is_mac()
   " Macではデフォルトの'iskeyword'がcp932に対応しきれていないので修正
   set iskeyword=@,48-57,_,128-167,224-235
 endif
@@ -97,7 +97,9 @@ endif
 " ファイル編集時に考慮される文字エンコーディングリスト fencs
 set fileencodings+=cp932
 " <EOL> を、カレントバッファについて設定する ff
-set fileformat=unix
+if &modifiable
+  set fileformat=unix
+endif
 " ステータス行の表示内容を設定する stl
 " < 先頭
 " f 相対パス
