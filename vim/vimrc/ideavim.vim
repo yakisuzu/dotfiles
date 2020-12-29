@@ -1,3 +1,4 @@
+scriptencoding utf-8
 function! s:ideavim_write()
   let st_file = fnamemodify('~/.ideavimrc', ':p')
   let li_line = [

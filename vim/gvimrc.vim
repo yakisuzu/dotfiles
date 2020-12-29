@@ -1,1 +1,2 @@
-call g:Load_vimrc('gvimrc_base.vim')
+scriptencoding utf-8
+call g:Import('gvimrc/set')
