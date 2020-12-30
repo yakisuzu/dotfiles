@@ -36,3 +36,6 @@ function! s:ideavim_write()
   call writefile(li_line, st_file)
 endfunction
 call s:ideavim_write()
+
+command! Ideavimrc tabe +set\ ft=vim ~/.ideavimrc
+

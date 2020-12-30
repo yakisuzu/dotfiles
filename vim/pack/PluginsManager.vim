@@ -12,24 +12,24 @@ function! s:hooks.vital() abort
 endfunction
 
 "---------------------------------------------------------------------------
-function! s:hooks.shaberu() abort
-  function! g:Shaberu_say_print(st_arg) abort
-    echom a:st_arg
-    " TODO ちょっと動かない
-    " call shaberu#say(a:st_arg)
-  endfunction
-
-  function! g:Say_random(li_str) abort
-    call g:Shaberu_say_print(g:VMran.sample(a:li_str))
-  endfunction
-
-  augroup shaberu_vimrc
-    autocmd!
-    autocmd VimEnter * call g:Say_random(['ビムへようこそ', 'ご注文はビムですか', 'ビ、ビムなんかじゃないんだからね', 'イーマックスへようこそ', 'ビムです', 'ビムではありません'])
-    autocmd MenuPopup * call g:Say_random(['そんなにマウスが好きですか'])
-    autocmd VimLeavePre * call g:Say_random(['お疲れ様でした。進捗どうですか', '終了します'])
-  augroup END
-endfunction
+"function! s:hooks.shaberu() abort
+"  function! g:Shaberu_say_print(st_arg) abort
+"    echom a:st_arg
+"    " TODO ちょっと動かない
+"    " call shaberu#say(a:st_arg)
+"  endfunction
+"
+"  function! g:Say_random(li_str) abort
+"    call g:Shaberu_say_print(g:VMran.sample(a:li_str))
+"  endfunction
+"
+"  augroup shaberu_vimrc
+"    autocmd!
+"    autocmd VimEnter * call g:Say_random(['ビムへようこそ', 'ご注文はビムですか', 'ビ、ビムなんかじゃないんだからね', 'イーマックスへようこそ', 'ビムです', 'ビムではありません'])
+"    autocmd MenuPopup * call g:Say_random(['そんなにマウスが好きですか'])
+"    autocmd VimLeavePre * call g:Say_random(['お疲れ様でした。進捗どうですか', '終了します'])
+"  augroup END
+"endfunction
 
 "---------------------------------------------------------------------------
 function! s:hooks.open_browser() abort
@@ -37,53 +37,54 @@ function! s:hooks.open_browser() abort
 endfunction
 
 "---------------------------------------------------------------------------
-function! s:hooks.vim_quickrun() abort
-  let g:quickrun_config = {
-        \  '_': {
-        \    'runner': 'job',
-        \  },
-        \  'java': {
-        \    'exec': ['javac -encoding UTF-8 %o %s', '%c -Dfile.encoding=UTF8 %s:t:r %a'],
-        \    'hook/output_encode/encoding': 'cp932',
-        \  },
-        \}
-
-  if g:Is_windows()
-    let g:quickrun_config = extend(g:quickrun_config, {
-          \  'cs/csc': {
-          \    'command': 'C:/Windows/Microsoft.NET/Framework64/v4.0.30319/csc.exe',
-          \  },
-          \})
-  endif
-endfunction
+"function! s:hooks.vim_quickrun() abort
+"  let g:quickrun_config = {
+"        \  '_': {
+"        \    'runner': 'job',
+"        \  },
+"        \  'java': {
+"        \    'exec': ['javac -encoding UTF-8 %o %s', '%c -Dfile.encoding=UTF8 %s:t:r %a'],
+"        \    'hook/output_encode/encoding': 'cp932',
+"        \  },
+"        \}
+"
+"  if g:Is_windows()
+"    let g:quickrun_config = extend(g:quickrun_config, {
+"          \  'cs/csc': {
+"          \    'command': 'C:/Windows/Microsoft.NET/Framework64/v4.0.30319/csc.exe',
+"          \  },
+"          \})
+"  endif
+"endfunction
 
 "---------------------------------------------------------------------------
-function! s:hooks.syntastic() abort
-  "let g:syntastic_debug = 3
-  let g:syntastic_auto_jump = 1
-
-  let g:syntastic_java_checkers = []
-  "let g:syntastic_java_javac_args = '-encoding UTF-8'
-  let g:syntastic_javascript_checkers = ['eslint']
-  let g:syntastic_typescript_checkers = ['eslint']
-  let g:syntastic_sh_checkers = []
-
-  function! s:get_filepath(file_name) abort
-    let file_list = glob(substitute(system('cd ' . expand('%:p:h') . ' && npm bin'), '\n', '', '') . '/' . a:file_name . '*' ,1 ,1)
-    if empty(file_list)
-      return ''
-    endif
-    " if exists cmd, for win
-    let file_idx = match(file_list, '.cmd')
-    return (file_idx == -1) ? file_list[0] : file_list[file_idx]
-  endfunction
-
-  augroup syntastic_vimrc
-    autocmd!
-    autocmd FileType javascript let b:syntastic_javascript_eslint_exec = s:get_filepath('eslint')
-    autocmd FileType typescript let b:syntastic_typescript_eslint_exec = s:get_filepath('eslint')
-  augroup END
-endfunction
+"function! s:hooks.syntastic() abort
+"  "let g:syntastic_debug = 3
+"  let g:syntastic_auto_jump = 1
+"
+"  let g:syntastic_java_checkers = []
+"  "let g:syntastic_java_javac_args = '-encoding UTF-8'
+"  let g:syntastic_javascript_checkers = ['eslint']
+"  let g:syntastic_typescript_checkers = ['eslint']
+"  let g:syntastic_sh_checkers = []
+"
+"  " TODO 重たいかも
+"  function! s:get_filepath(file_name) abort
+"    let file_list = glob(substitute(system('cd ' . expand('%:p:h') . ' && npm bin'), '\n', '', '') . '/' . a:file_name . '*' ,1 ,1)
+"    if empty(file_list)
+"      return ''
+"    endif
+"    " if exists cmd, for win
+"    let file_idx = match(file_list, '.cmd')
+"    return (file_idx == -1) ? file_list[0] : file_list[file_idx]
+"  endfunction
+"
+"  augroup syntastic_vimrc
+"    autocmd!
+"    autocmd FileType javascript let b:syntastic_javascript_eslint_exec = s:get_filepath('eslint')
+"    autocmd FileType typescript let b:syntastic_typescript_eslint_exec = s:get_filepath('eslint')
+"  augroup END
+"endfunction
 
 "---------------------------------------------------------------------------
 function! s:hooks.Align() abort
@@ -95,12 +96,12 @@ function! s:hooks.Align() abort
 endfunction
 
 "---------------------------------------------------------------------------
-function! s:hooks.incsearch() abort
-  map /  <Plug>(incsearch-forward)
-  map ?  <Plug>(incsearch-backward)
-  " for mac
-  "map g/ <Plug>(incsearch-stay)
-endfunction
+"function! s:hooks.incsearch() abort
+"  map /  <Plug>(incsearch-forward)
+"  map ?  <Plug>(incsearch-backward)
+"  " for mac
+"  "map g/ <Plug>(incsearch-stay)
+"endfunction
 
 "---------------------------------------------------------------------------
 function! s:hooks.indentLine() abort
@@ -212,17 +213,17 @@ function! s:hooks.vimfiler() abort
 endfunction
 
 "---------------------------------------------------------------------------
-function! s:hooks.vim_operator_surround() abort
-  map <silent> <Leader>sa <Plug>(operator-surround-append)
-  map <silent> <Leader>sd <Plug>(operator-surround-delete)
-  map <silent> <Leader>sr <Plug>(operator-surround-replace)
-endfunction
+"function! s:hooks.vim_operator_surround() abort
+"  map <silent> <Leader>sa <Plug>(operator-surround-append)
+"  map <silent> <Leader>sd <Plug>(operator-surround-delete)
+"  map <silent> <Leader>sr <Plug>(operator-surround-replace)
+"endfunction
 
 "---------------------------------------------------------------------------
-function! s:hooks.operator_camelize() abort
-  map <silent> <Leader>c <Plug>(operator-camelize)
-  map <silent> <Leader>C <Plug>(operator-decamelize)
-endfunction
+"function! s:hooks.operator_camelize() abort
+"  map <silent> <Leader>c <Plug>(operator-camelize)
+"  map <silent> <Leader>C <Plug>(operator-decamelize)
+"endfunction
 
 "---------------------------------------------------------------------------
 function! s:hooks.typescript_vim() abort
@@ -246,30 +247,30 @@ function! g:PluginsManager() abort
   function! s:pm.load_plugins() abort
     " Additional plugins.
     packadd vital.vim | call s:hooks.vital()
-    if g:Is_mac()
-      packadd shaberu.vim | call s:hooks.shaberu() " depends vital.vim
-    endif
+    "if g:Is_mac()
+    "  packadd shaberu.vim | call s:hooks.shaberu() " depends vital.vim
+    "endif
     packadd open-browser.vim | call s:hooks.open_browser()
     packadd previm " depends open-browser.vim
-    packadd vim-quickrun | call s:hooks.vim_quickrun()
-    packadd syntastic | call s:hooks.syntastic()
+    "packadd vim-quickrun | call s:hooks.vim_quickrun()
+    "packadd syntastic | call s:hooks.syntastic()
     packadd Align | call s:hooks.Align()
-    packadd clever-f.vim
-    packadd incsearch.vim | call s:hooks.incsearch()
+    "packadd clever-f.vim
+    "packadd incsearch.vim | call s:hooks.incsearch()
     packadd indentLine | call s:hooks.indentLine()
     packadd restart.vim
 
     packadd unite.vim | call s:hooks.unite()
-    packadd unite-quickfix " depends unite.vim
+    "packadd unite-quickfix " depends unite.vim
     packadd unite-bookmarkamazing | call s:hooks.unite_bookmarkamazing() " depends unite.vim
     packadd vimfiler.vim | call s:hooks.vimfiler() " depends unite.vim
 
-    packadd vim-operator-user
-    packadd vim-operator-surround | call s:hooks.vim_operator_surround() " depends vim-operator-user
-    packadd operator-camelize.vim | call s:hooks.operator_camelize() " depends vim-operator-user
+    "packadd vim-operator-user
+    "packadd vim-operator-surround | call s:hooks.vim_operator_surround() " depends vim-operator-user
+    "packadd operator-camelize.vim | call s:hooks.operator_camelize() " depends vim-operator-user
 
-    packadd vim-textobj-user
-    packadd vim-textobj-function " depends vim-textobj-user
+    "packadd vim-textobj-user
+    "packadd vim-textobj-function " depends vim-textobj-user
 
     augroup lazy_plugins
       autocmd!

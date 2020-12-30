@@ -1,3 +1,4 @@
+scriptencoding utf-8
 function! s:vrapperrc_write()
   let st_file = fnamemodify('~/_vrapperrc', ':p')
   let li_line = [
@@ -42,4 +43,6 @@ function! s:vrapperrc_write()
   call writefile(li_line, st_file)
 endfunction
 call s:vrapperrc_write()
+
+command! Vrapperrc tabe +set\ ft=vim ~/_vrapperrc
 
