@@ -20,12 +20,3 @@ function! g:Is_mac() abort
         \ )
 endfunction
 
-"---------------------------------------------------------------------------
-" vimrc_local init
-if has('vim_starting')
-  let local_file = fnamemodify('~/_vimrc_local', ':p')
-  if empty(glob(local_file))
-    call writefile([''], local_file)
-  endif
-endif
-

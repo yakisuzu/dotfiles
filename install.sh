@@ -46,6 +46,7 @@ echo --------------------
 echo init vim
 LINK_OVERRIDE "$PWD/vim/gvimrc.vim" "$HOME/_gvimrc"
 LINK_OVERRIDE "$PWD/vim/vimrc.vim" "$HOME/_vimrc"
+COPY_NOT_EXISTS "$PWD/vim/vimrc_local.vim" "$HOME/_vimrc_local"
 mkdir -p "$HOME/.vim"
 LINK_OVERRIDE "$PWD/vim/.vim/after" "$HOME/.vim/after"
 LINK_OVERRIDE "$PWD/vim/.vim/ftdetect" "$HOME/.vim/ftdetect"
