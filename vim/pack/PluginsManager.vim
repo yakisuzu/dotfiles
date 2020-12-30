@@ -3,33 +3,12 @@ scriptencoding utf-8
 let s:hooks = {}
 "---------------------------------------------------------------------------
 function! s:hooks.vital() abort
-  let g:VMfile = vital#vital#import('System.File')
-  let g:VMran  = vital#vital#import('Random')
+  let v_file = vital#vital#import('System.File')
 
-  command! -nargs=1 -complete=file Open call g:VMfile.open(<q-args>)
-  command! OpenClipbord echom 'open ' . @+ | call g:VMfile.open(@+)
-  command! OpenParenthese exe 'normal "oyi)' | echom 'open ' . @o | call g:VMfile.open(@o)
+  command! -nargs=1 -complete=file Open call v_file.open(<q-args>)
+  command! OpenClipbord echom 'open ' . @+ | call v_file.open(@+)
+  command! OpenParenthese exe 'normal "oyi)' | echom 'open ' . @o | call v_file.open(@o)
 endfunction
-
-"---------------------------------------------------------------------------
-"function! s:hooks.shaberu() abort
-"  function! g:Shaberu_say_print(st_arg) abort
-"    echom a:st_arg
-"    " TODO ちょっと動かない
-"    " call shaberu#say(a:st_arg)
-"  endfunction
-"
-"  function! g:Say_random(li_str) abort
-"    call g:Shaberu_say_print(g:VMran.sample(a:li_str))
-"  endfunction
-"
-"  augroup shaberu_vimrc
-"    autocmd!
-"    autocmd VimEnter * call g:Say_random(['ビムへようこそ', 'ご注文はビムですか', 'ビ、ビムなんかじゃないんだからね', 'イーマックスへようこそ', 'ビムです', 'ビムではありません'])
-"    autocmd MenuPopup * call g:Say_random(['そんなにマウスが好きですか'])
-"    autocmd VimLeavePre * call g:Say_random(['お疲れ様でした。進捗どうですか', '終了します'])
-"  augroup END
-"endfunction
 
 "---------------------------------------------------------------------------
 function! s:hooks.open_browser() abort
@@ -144,9 +123,10 @@ function! s:hooks.unite() abort
   let di_action = {
         \ 'is_selectable' : 1,
         \ }
+  let v_file = vital#vital#import('System.File')
   function! di_action.func(li_c) abort
     for di_c in a:li_c
-      call g:VMfile.open(di_c.action__path)
+      call v_file.open(di_c.action__path)
     endfor
   endfunction
   call unite#custom#action('jump_list', 'execute', di_action)
@@ -247,9 +227,7 @@ function! g:PluginsManager() abort
   function! s:pm.load_plugins() abort
     " Additional plugins.
     packadd vital.vim | call s:hooks.vital()
-    "if g:Is_mac()
-    "  packadd shaberu.vim | call s:hooks.shaberu() " depends vital.vim
-    "endif
+
     packadd open-browser.vim | call s:hooks.open_browser()
     packadd previm " depends open-browser.vim
     "packadd vim-quickrun | call s:hooks.vim_quickrun()

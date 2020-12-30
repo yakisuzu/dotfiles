@@ -40,7 +40,6 @@ function! g:MinpacManager(vim_home) abort
     call minpac#add('haya14busa/incsearch.vim', op)
     call minpac#add('Yggdroot/indentLine', op)
     call minpac#add('tyru/restart.vim', op)
-    call minpac#add('supermomonga/shaberu.vim', op)
     " for unite
     call minpac#add('Shougo/unite.vim', op)
     call minpac#add('osyo-manga/unite-quickfix', op)
