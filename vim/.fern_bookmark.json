@@ -1,0 +1,6 @@
+{
+  "home$":"fern:///file://~$",
+  "work$":"fern:///file://~/work$",
+  "Downloads$":"fern:///file://~/Downloads$",
+  "dotfiles$":"fern:///file://~/dotfiles$"
+}

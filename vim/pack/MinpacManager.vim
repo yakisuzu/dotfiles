@@ -44,6 +44,7 @@ function! g:MinpacManager(vim_home) abort
     call minpac#add('Yggdroot/indentLine', op)
     call minpac#add('tyru/restart.vim', op)
     call minpac#add('lambdalisue/fern.vim', op)
+    call minpac#add('lambdalisue/fern-bookmark.vim', op)
 
     " for unite
     "call minpac#add('Shougo/unite.vim', op)

@@ -118,8 +118,22 @@ endfunction
 function! s:hooks.fern() abort
   let g:fern#default_hidden=1
   let g:fern#drawer_keep=v:true
+  " TODO Explore(netrw)の上書きしてほしい
+  " TODO 折り返さない+少し幅増やす(&ft === fern)
+  " TODO ファイル名が長い？と、jで下に移動しない
+  " TODO -でセレクトしながら下がってほしい
+  " TODO 一括リネーム確認
 
   nnoremap [space]n :Fern ~ -drawer -toggle<CR>
+endfunction
+
+"---------------------------------------------------------------------------
+function! s:hooks.fern_bookmark() abort
+  " TODO bookmark <CR>でタブ開かず、開いているバッファに上書きしたい
+  " TODO bookmark ~がパースされないので、フルパスで書こうとすると、リポジトリにいれづらい
+  let g:fern#scheme#bookmark#store#file='~/.fern_bookmark.json'
+
+  nnoremap [space]b :Fern bookmark:/// -drawer -toggle<CR>
 endfunction
 
 "---------------------------------------------------------------------------
@@ -275,6 +289,7 @@ function! g:PluginsManager() abort
     packadd indentLine | call s:hooks.indentLine()
     packadd restart.vim
     packadd fern.vim | call s:hooks.fern()
+    packadd fern-bookmark.vim | call s:hooks.fern_bookmark()
 
     "packadd unite.vim | call s:hooks.unite()
     "packadd unite-quickfix " depends unite.vim
