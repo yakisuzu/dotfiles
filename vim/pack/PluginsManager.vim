@@ -71,6 +71,7 @@ function! s:hooks.Align() abort
   " 1(default):fastest
   " 2:Number of spacing codepoints?
   " 3:Virtual length?, multi-byte support
+  let g:Align_xstrlen=3
   command! -nargs=1 SetAlignXstrlen let g:Align_xstrlen=<args>
 endfunction
 
@@ -88,86 +89,86 @@ function! s:hooks.indentLine() abort
 endfunction
 
 "---------------------------------------------------------------------------
-function! s:hooks.unite() abort
-  " init unite bookmark
-  call unite#sources#bookmark#define()
-
-  command! UBuffer Unite buffer
-
-  function! s:unite_vimgrep(...) abort
-    let li_args = []
-    if a:0 == 1
-      let li_args = ['*', a:1]
-    elseif a:0 ==2
-      let li_args = [a:1, a:2]
-    else
-      echomsg 'args count is fail'
-      return 1
-    endif
-
-    let @/ = li_args[1]
-    let li_cmd = [
-          \   'Unite'
-          \ , 'vimgrep:./**/*' . li_args[0] . ':' . li_args[1]
-          \ , '-auto-preview'
-          \ , '-vertical-preview'
-          \ , '-no-quit'
-          \ , '-tab'
-          \ , '-default-action=tabopen'
-          \ ]
-    silent exe join(li_cmd)
-  endfunction
-  command! -nargs=+ UVimgrep call s:unite_vimgrep(<f-args>)
-
-  " add unite action execute
-  let di_action = {
-        \ 'is_selectable' : 1,
-        \ }
-  let v_file = vital#vital#import('System.File')
-  function! di_action.func(li_c) abort
-    for di_c in a:li_c
-      call v_file.open(di_c.action__path)
-    endfor
-  endfunction
-  call unite#custom#action('jump_list', 'execute', di_action)
-  function! s:filetype_unite() abort
-    nnoremap <silent><buffer><expr> x unite#do_action('execute')
-  endfunction
-
-  augroup unite_vimrc
-    autocmd!
-    autocmd FileType unite call s:filetype_unite()
-  augroup END
-endfunction
+"function! s:hooks.unite() abort
+"  " init unite bookmark
+"  call unite#sources#bookmark#define()
+"
+"  command! UBuffer Unite buffer
+"
+"  function! s:unite_vimgrep(...) abort
+"    let li_args = []
+"    if a:0 == 1
+"      let li_args = ['*', a:1]
+"    elseif a:0 ==2
+"      let li_args = [a:1, a:2]
+"    else
+"      echomsg 'args count is fail'
+"      return 1
+"    endif
+"
+"    let @/ = li_args[1]
+"    let li_cmd = [
+"          \   'Unite'
+"          \ , 'vimgrep:./**/*' . li_args[0] . ':' . li_args[1]
+"          \ , '-auto-preview'
+"          \ , '-vertical-preview'
+"          \ , '-no-quit'
+"          \ , '-tab'
+"          \ , '-default-action=tabopen'
+"          \ ]
+"    silent exe join(li_cmd)
+"  endfunction
+"  command! -nargs=+ UVimgrep call s:unite_vimgrep(<f-args>)
+"
+"  " add unite action execute
+"  let di_action = {
+"        \ 'is_selectable' : 1,
+"        \ }
+"  let v_file = vital#vital#import('System.File')
+"  function! di_action.func(li_c) abort
+"    for di_c in a:li_c
+"      call v_file.open(di_c.action__path)
+"    endfor
+"  endfunction
+"  call unite#custom#action('jump_list', 'execute', di_action)
+"  function! s:filetype_unite() abort
+"    nnoremap <silent><buffer><expr> x unite#do_action('execute')
+"  endfunction
+"
+"  augroup unite_vimrc
+"    autocmd!
+"    autocmd FileType unite call s:filetype_unite()
+"  augroup END
+"endfunction
 
 "---------------------------------------------------------------------------
-function! s:hooks.unite_bookmarkamazing() abort
-  " init unite bookmarkamazing
-  call unite#sources#bookmarkamazing#define()
-
-  function! s:unite_bookmarkamazing_comp(A,L,P) abort
-    return unite#sources#bookmarkamazing#get_bookmark_file_complete_list(a:A, a:L, a:P, ['*'])
-  endfunction
-  function! s:unite_bookmarkamazing_open(st_arg, st_default) abort
-    if &ft == 'vimfiler'
-      call unite#custom#default_action('directory', 'vimfiler')
-    else
-      call unite#custom#default_action('directory', 'tabvimfiler')
-    endif
-
-    let st_file = empty(a:st_arg) ? a:st_default : a:st_arg
-    let li_cmd = [
-          \   'Unite'
-          \ , 'bookmarkamazing:' . st_file
-          \ , '-vertical'
-          \ , '-direction=leftabove'
-          \ , '-winwidth=60'
-          \ ]
-    silent exe join(li_cmd)
-  endfunction
-  command! -nargs=? -complete=customlist,s:unite_bookmarkamazing_comp
-        \ UBookmarkA call s:unite_bookmarkamazing_open(<q-args>, 'default')
-endfunction
+"function! s:hooks.unite_bookmarkamazing() abort
+"  " init unite bookmarkamazing
+"  call unite#sources#bookmarkamazing#define()
+"
+"  function! s:unite_bookmarkamazing_comp(A,L,P) abort
+"    return unite#sources#bookmarkamazing#get_bookmark_file_complete_list(a:A, a:L, a:P, ['*'])
+"  endfunction
+"  function! s:unite_bookmarkamazing_open(st_arg, st_default) abort
+"    if &ft == 'vimfiler'
+"      call unite#custom#default_action('directory', 'vimfiler')
+"    else
+"      call unite#custom#default_action('directory', 'tabvimfiler')
+"    endif
+"
+"    let st_file = empty(a:st_arg) ? a:st_default : a:st_arg
+"    let li_cmd = [
+"          \   'Unite'
+"          \ , 'bookmarkamazing:' . st_file
+"          \ , '-vertical'
+"          \ , '-direction=leftabove'
+"          \ , '-winwidth=60'
+"          \ ]
+"    silent exe join(li_cmd)
+"  endfunction
+"  command! -nargs=? -complete=customlist,s:unite_bookmarkamazing_comp
+"        \ UBookmarkA call s:unite_bookmarkamazing_open(<q-args>, 'default')
+"endfunction
 
 "---------------------------------------------------------------------------
 function! s:hooks.nerdtree() abort
@@ -191,30 +192,32 @@ function! s:hooks.nerdtree() abort
     let v_file = vital#vital#import('System.File')
     call v_file.open(a:filenode.path.str())
   endfunction
+
+  nnoremap [space]n :NERDTreeToggle<CR>
 endfunction
 
 "---------------------------------------------------------------------------
-function! s:hooks.vimfiler() abort
-  let g:vimfiler_as_default_explorer = 1
-  call vimfiler#custom#profile('default', 'context', {
-        \   'auto_cd' : 1
-        \ , 'edit_action' : 'tabopen'
-        \ , 'sort_type' : 'filename'
-        \ })
-  command! -nargs=? VFexplorer VimFiler -explorer -simple -edit-action=open <args>
-
-  function! s:filetype_vimfiler() abort
-    " change keymap t to o
-    unmap <buffer> t
-    unmap <buffer> T
-    nmap <buffer> o <Plug>(vimfiler_expand_tree)
-    nmap <buffer> O <Plug>(vimfiler_expand_tree_recursive)
-  endfunction
-  augroup vimfiler_vimrc
-    autocmd!
-    autocmd FileType vimfiler call s:filetype_vimfiler()
-  augroup END
-endfunction
+"function! s:hooks.vimfiler() abort
+"  let g:vimfiler_as_default_explorer = 1
+"  call vimfiler#custom#profile('default', 'context', {
+"        \   'auto_cd' : 1
+"        \ , 'edit_action' : 'tabopen'
+"        \ , 'sort_type' : 'filename'
+"        \ })
+"  command! -nargs=? VFexplorer VimFiler -explorer -simple -edit-action=open <args>
+"
+"  function! s:filetype_vimfiler() abort
+"    " change keymap t to o
+"    unmap <buffer> t
+"    unmap <buffer> T
+"    nmap <buffer> o <Plug>(vimfiler_expand_tree)
+"    nmap <buffer> O <Plug>(vimfiler_expand_tree_recursive)
+"  endfunction
+"  augroup vimfiler_vimrc
+"    autocmd!
+"    autocmd FileType vimfiler call s:filetype_vimfiler()
+"  augroup END
+"endfunction
 
 "---------------------------------------------------------------------------
 "function! s:hooks.vim_operator_surround() abort
@@ -256,13 +259,14 @@ function! g:PluginsManager() abort
 
     "packadd vim-quickrun | call s:hooks.vim_quickrun()
     "packadd syntastic | call s:hooks.syntastic()
-    packadd Align | call s:hooks.Align()
     "packadd clever-f.vim
     "packadd incsearch.vim | call s:hooks.incsearch()
+
+    packadd Align | call s:hooks.Align()
     packadd indentLine | call s:hooks.indentLine()
     packadd restart.vim
-
     packadd nerdtree | call s:hooks.nerdtree()
+
     "packadd unite.vim | call s:hooks.unite()
     "packadd unite-quickfix " depends unite.vim
     "packadd unite-bookmarkamazing | call s:hooks.unite_bookmarkamazing() " depends unite.vim
