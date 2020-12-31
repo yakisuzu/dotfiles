@@ -197,25 +197,25 @@ karabiner://karabiner/assets/complex_modifications/import?url=https%3A%2F%2Frcmd
 
 ## dotfiles install
 ```
-cd %USERPROFILE% && git clone https://github.com/yakisuzu/dotfiles.git  
-.\dotfiles\install.bat  
-powershell -ExecutionPolicy unrestricted %USERPROFILE%\dotfiles\bin\update_path.ps1  
+cd %USERPROFILE% && git clone https://github.com/yakisuzu/dotfiles.git
+.\dotfiles\install.bat
+powershell -ExecutionPolicy unrestricted %USERPROFILE%\dotfiles\bin\update_path.ps1
 ```
 
 ## bash setting
 ### msys2
 [msys2](https://www.msys2.org/)  
 ```
-pacman -Syuu  
-pacman -Suu  
+pacman -Syuu
+pacman -Suu
 ```
 
 ### bash on windows (win10)
 ```
-sudo sed -i -e 's%http://.*.ubuntu.com%http://ftp.jaist.ac.jp/pub/Linux%g' /etc/apt/sources.list  
-sudo apt update  
-sudo apt upgrade  
-sudo apt install p7zip-full  
+sudo sed -i -e 's%http://.*.ubuntu.com%http://ftp.jaist.ac.jp/pub/Linux%g' /etc/apt/sources.list
+sudo apt update
+sudo apt upgrade
+sudo apt install p7zip-full
 ```
 
 ## apps setup
@@ -256,25 +256,22 @@ sudo apt install p7zip-full
 
 # IntelliJ IDEA
 ## setting repository
-https://github.com/yakisuzu/intellij-settings.git
+https://github.com/yakisuzu/intellij-settings.git  
 
 ## plugins
-- AWS CloudFormation
-- BashSupport
-- File Watchers
-- Go
-- Python
-- IdeaVim
-- Ideolog
-- Kubernetes
-- Lombok
-- Makefile Support
-- NodeJS
-- Prettier
-- Scala
-- Vue.js
-- EnvFile
+- AWS CloudFormation  
+- BashSupport  
+- File Watchers  
+- Go  
+- Python  
+- IdeaVim  
+- Ideolog  
+- Kubernetes  
+- Lombok  
+- Makefile Support  
+- NodeJS  
+- Prettier  
+- Scala  
+- Vue.js  
+- EnvFile  
 
-# Vim
-## bookmark
-https://github.com/yakisuzu/unite-bookmarkamazing-md
