@@ -36,4 +36,5 @@ endif
 command! PackUpdate call s:minpacManager.init_plugins() | call s:minpacManager.update() | call s:pluginsManager.load_plugins()
 command! PackClean  call s:minpacManager.init_plugins() | call minpac#clean()
 command! PackStatus call minpac#status()
+command! PackLoadPlugins call s:pluginsManager.load_plugins()
 

@@ -34,12 +34,14 @@ function! g:MinpacManager(vim_home) abort
     call minpac#add('tyru/open-browser.vim', op)
     call minpac#add('yakisuzu/previm', op)
     call minpac#add('thinca/vim-quickrun', op)
+    call minpac#add('scrooloose/nerdtree', op)
     call minpac#add('scrooloose/syntastic', op)
     call minpac#add('vim-scripts/Align', op)
     call minpac#add('rhysd/clever-f.vim', op)
     call minpac#add('haya14busa/incsearch.vim', op)
     call minpac#add('Yggdroot/indentLine', op)
     call minpac#add('tyru/restart.vim', op)
+
     " for unite
     call minpac#add('Shougo/unite.vim', op)
     call minpac#add('osyo-manga/unite-quickfix', op)

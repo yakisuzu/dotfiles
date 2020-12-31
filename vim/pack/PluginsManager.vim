@@ -170,6 +170,30 @@ function! s:hooks.unite_bookmarkamazing() abort
 endfunction
 
 "---------------------------------------------------------------------------
+function! s:hooks.nerdtree() abort
+  " 使ったら閉じる
+  " let g:NERDTreeQuitOnOpen=3
+  " ブックマーク表示
+  let g:NERDTreeShowBookmarks=1
+  " 隠しファイル表示
+  let g:NERDTreeShowHidden=1
+
+  " x: system実行
+  call NERDTreeAddKeyMap({
+    \   'key': 'x',
+    \   'callback': 'Callback_x',
+    \   'quickhelpText': 'open file',
+    \   'scope': 'FileNode',
+    \ })
+
+  function! Callback_x(filenode)
+    " TODO vitalなかったら
+    let v_file = vital#vital#import('System.File')
+    call v_file.open(a:filenode.path.str())
+  endfunction
+endfunction
+
+"---------------------------------------------------------------------------
 function! s:hooks.vimfiler() abort
   let g:vimfiler_as_default_explorer = 1
   call vimfiler#custom#profile('default', 'context', {
@@ -225,11 +249,11 @@ function! g:PluginsManager() abort
   let s:pm = {}
   "---------------------------------------------------------------------------
   function! s:pm.load_plugins() abort
-    " Additional plugins.
     packadd vital.vim | call s:hooks.vital()
 
     packadd open-browser.vim | call s:hooks.open_browser()
     packadd previm " depends open-browser.vim
+
     "packadd vim-quickrun | call s:hooks.vim_quickrun()
     "packadd syntastic | call s:hooks.syntastic()
     packadd Align | call s:hooks.Align()
@@ -238,10 +262,11 @@ function! g:PluginsManager() abort
     packadd indentLine | call s:hooks.indentLine()
     packadd restart.vim
 
-    packadd unite.vim | call s:hooks.unite()
+    packadd nerdtree | call s:hooks.nerdtree()
+    "packadd unite.vim | call s:hooks.unite()
     "packadd unite-quickfix " depends unite.vim
-    packadd unite-bookmarkamazing | call s:hooks.unite_bookmarkamazing() " depends unite.vim
-    packadd vimfiler.vim | call s:hooks.vimfiler() " depends unite.vim
+    "packadd unite-bookmarkamazing | call s:hooks.unite_bookmarkamazing() " depends unite.vim
+    "packadd vimfiler.vim | call s:hooks.vimfiler() " depends unite.vim
 
     "packadd vim-operator-user
     "packadd vim-operator-surround | call s:hooks.vim_operator_surround() " depends vim-operator-user

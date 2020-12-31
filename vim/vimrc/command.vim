@@ -24,10 +24,7 @@ function! s:comp_gvimrc(ArgLead, CmdLine, CursorPos)
 endfunction
 
 function! s:vimrc_open(dir_vimrc, file)
-  if empty(a:file)
-    exe 'Explore ' . a:dir_vimrc
-  endif
-  let path = a:dir_vimrc . '/' . a:file
+  let path = a:dir_vimrc . (empty(a:file) ? '/..' : '/' . a:file)
   if !empty(glob(path))
     exe join(['tabe', path])
   else
