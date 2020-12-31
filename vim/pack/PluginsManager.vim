@@ -37,6 +37,32 @@ endfunction
 "endfunction
 
 "---------------------------------------------------------------------------
+function! s:hooks.nerdtree() abort
+  " 使ったら閉じる
+  " let g:NERDTreeQuitOnOpen=3
+  " ブックマーク表示
+  let g:NERDTreeShowBookmarks=1
+  " 隠しファイル表示
+  let g:NERDTreeShowHidden=1
+
+  " x: system実行
+  call NERDTreeAddKeyMap({
+    \   'key': 'x',
+    \   'callback': 'Callback_x',
+    \   'quickhelpText': 'open file',
+    \   'scope': 'FileNode',
+    \ })
+
+  function! Callback_x(filenode)
+    " TODO vitalなかったら
+    let v_file = vital#vital#import('System.File')
+    call v_file.open(a:filenode.path.str())
+  endfunction
+
+  nnoremap [space]n :NERDTreeToggle<CR>
+endfunction
+
+"---------------------------------------------------------------------------
 "function! s:hooks.syntastic() abort
 "  "let g:syntastic_debug = 3
 "  let g:syntastic_auto_jump = 1
@@ -86,6 +112,14 @@ endfunction
 "---------------------------------------------------------------------------
 function! s:hooks.indentLine() abort
   let g:indentLine_color_gui='#808080'
+endfunction
+
+"---------------------------------------------------------------------------
+function! s:hooks.fern() abort
+  let g:fern#default_hidden=1
+  let g:fern#drawer_keep=v:true
+
+  nnoremap [space]n :Fern ~ -drawer -toggle<CR>
 endfunction
 
 "---------------------------------------------------------------------------
@@ -171,32 +205,6 @@ endfunction
 "endfunction
 
 "---------------------------------------------------------------------------
-function! s:hooks.nerdtree() abort
-  " 使ったら閉じる
-  " let g:NERDTreeQuitOnOpen=3
-  " ブックマーク表示
-  let g:NERDTreeShowBookmarks=1
-  " 隠しファイル表示
-  let g:NERDTreeShowHidden=1
-
-  " x: system実行
-  call NERDTreeAddKeyMap({
-    \   'key': 'x',
-    \   'callback': 'Callback_x',
-    \   'quickhelpText': 'open file',
-    \   'scope': 'FileNode',
-    \ })
-
-  function! Callback_x(filenode)
-    " TODO vitalなかったら
-    let v_file = vital#vital#import('System.File')
-    call v_file.open(a:filenode.path.str())
-  endfunction
-
-  nnoremap [space]n :NERDTreeToggle<CR>
-endfunction
-
-"---------------------------------------------------------------------------
 "function! s:hooks.vimfiler() abort
 "  let g:vimfiler_as_default_explorer = 1
 "  call vimfiler#custom#profile('default', 'context', {
@@ -258,6 +266,7 @@ function! g:PluginsManager() abort
     packadd previm " depends open-browser.vim
 
     "packadd vim-quickrun | call s:hooks.vim_quickrun()
+    "packadd nerdtree | call s:hooks.nerdtree()
     "packadd syntastic | call s:hooks.syntastic()
     "packadd clever-f.vim
     "packadd incsearch.vim | call s:hooks.incsearch()
@@ -265,7 +274,7 @@ function! g:PluginsManager() abort
     packadd Align | call s:hooks.Align()
     packadd indentLine | call s:hooks.indentLine()
     packadd restart.vim
-    packadd nerdtree | call s:hooks.nerdtree()
+    packadd fern.vim | call s:hooks.fern()
 
     "packadd unite.vim | call s:hooks.unite()
     "packadd unite-quickfix " depends unite.vim

@@ -33,27 +33,30 @@ function! g:MinpacManager(vim_home) abort
     call minpac#add('vim-jp/vital.vim', op)
     call minpac#add('tyru/open-browser.vim', op)
     call minpac#add('yakisuzu/previm', op)
-    call minpac#add('thinca/vim-quickrun', op)
-    call minpac#add('scrooloose/nerdtree', op)
-    call minpac#add('scrooloose/syntastic', op)
+
+    "call minpac#add('thinca/vim-quickrun', op)
+    "call minpac#add('scrooloose/nerdtree', op)
+    "call minpac#add('scrooloose/syntastic', op)
+    "call minpac#add('rhysd/clever-f.vim', op)
+    "call minpac#add('haya14busa/incsearch.vim', op)
+
     call minpac#add('vim-scripts/Align', op)
-    call minpac#add('rhysd/clever-f.vim', op)
-    call minpac#add('haya14busa/incsearch.vim', op)
     call minpac#add('Yggdroot/indentLine', op)
     call minpac#add('tyru/restart.vim', op)
+    call minpac#add('lambdalisue/fern.vim', op)
 
     " for unite
-    call minpac#add('Shougo/unite.vim', op)
-    call minpac#add('osyo-manga/unite-quickfix', op)
-    call minpac#add('yakisuzu/unite-bookmarkamazing', op)
-    call minpac#add('Shougo/vimfiler.vim', op)
+    "call minpac#add('Shougo/unite.vim', op)
+    "call minpac#add('osyo-manga/unite-quickfix', op)
+    "call minpac#add('yakisuzu/unite-bookmarkamazing', op)
+    "call minpac#add('Shougo/vimfiler.vim', op)
     " for operator
-    call minpac#add('kana/vim-operator-user', op)
-    call minpac#add('rhysd/vim-operator-surround', op)
-    call minpac#add('tyru/operator-camelize.vim', op)
+    "call minpac#add('kana/vim-operator-user', op)
+    "call minpac#add('rhysd/vim-operator-surround', op)
+    "call minpac#add('tyru/operator-camelize.vim', op)
     " for textobj
-    call minpac#add('kana/vim-textobj-user', op)
-    call minpac#add('kana/vim-textobj-function', op)
+    "call minpac#add('kana/vim-textobj-user', op)
+    "call minpac#add('kana/vim-textobj-function', op)
     " for typescript
     call minpac#add('leafgarland/typescript-vim', op)
     " for python
