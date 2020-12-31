@@ -1,3 +1,6 @@
 home ~
 work ~/work
+download ~/Downloads
+dotfiles ~/dotfiles
+bookmarks ~/.NERDTreeBookmarks
 
