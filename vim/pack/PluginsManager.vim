@@ -118,11 +118,20 @@ endfunction
 function! s:hooks.fern() abort
   let g:fern#default_hidden=1
   let g:fern#drawer_keep=v:true
+  let g:fern#drawer_width=50
   " TODO Explore(netrw)の上書きしてほしい
-  " TODO 折り返さない+少し幅増やす(&ft === fern)
-  " TODO ファイル名が長い？と、jで下に移動しない
   " TODO -でセレクトしながら下がってほしい
   " TODO 一括リネーム確認
+
+  function! s:hook_type_fern() abort
+    " 折り返さない
+    set nowrap
+  endfunction
+
+  augroup fern_filetype
+    autocmd!
+    autocmd FileType fern call s:hook_type_fern()
+  augroup END
 
   nnoremap [space]n :Fern ~ -drawer -toggle<CR>
 endfunction
