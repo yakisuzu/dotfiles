@@ -105,7 +105,7 @@ endif
 " c 何列目にカーソルがあるか
 " V 実際に何列目にカーソルがあるか
 " P 現在表示されているウィンドウ内のテキストが、ファイル内の何％の位置か
-set statusline=%<%F%=%m%r%h%w%{'[enc='.&enc.']\ [fenc='.&fenc.'][ft='.&ft.'][ff='.&ff.']\ [et='.(&et?'space':'tab').'][sw='.&sw.'][ts='.&ts.']'}\ [col=%-7(%c%V%)][row=%l/%L(%4P)]
+set statusline=%<%F%=%m%r%h%w\ enc:%{&enc}\ /\ fenc:%{&fenc},\ filetype:%{&ft},\ lineFeed:%{&ff=='unix'?'<NL>':$ff=='dos'?'<CR><NL>':'<CR>'}\ /\ %{&et?'space':'tab'},\ indent:%{&sw},\ tab:%{&ts}\ /\ col:%03c,\ row:%05l-%05L(%04P)
 " 'wildchar' で指定されたキーで開始する補完モード
 " full          次のマッチを完全に補完する。最後のマッチの次には元の文字列が使われ、その次は再び最初のマッチが補完される。
 " longest       共通する最長の文字列までが補完される。それ以上長い文字列を補完できないときは、次の候補に移る。
@@ -120,4 +120,6 @@ set wildignore+=tags
 set display=lastline
 " 前回の検索パターンを強調表示 hls
 set hlsearch
+" ファイルを開いているディレクトリに自動で移動する acd
+set autochdir
 

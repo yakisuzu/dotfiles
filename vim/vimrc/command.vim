@@ -5,30 +5,34 @@ command! VimrcSo so ~/_vimrc
 command! GVimrcSo so ~/_gvimrc
 
 command! VimrcLocalOpen tabe ~/_vimrc_local
-command! -nargs=? -complete=customlist,s:comp_vimrc
-      \ VimrcOpen call s:vimrc_open(g:dir_vimrc . '/vimrc', <q-args>)
-command! -nargs=? -complete=customlist,s:comp_gvimrc
-      \ GVimrcOpen call s:vimrc_open(g:dir_vimrc . '/gvimrc', <q-args>)
+"command! -nargs=? -complete=file
+command! -nargs=? -complete=customlist,s:comp_vimrc_cb
+      \ VimrcOpen call s:vimrc_open(g:dir_vimrc, <q-args>)
 
-function! s:files(path)
-  return sort(map(
-        \   split(glob(a:path), '\n'),
-        \   'fnamemodify(v:val, ":t")'
-        \ ))
-endfunction
-function! s:comp_vimrc(ArgLead, CmdLine, CursorPos)
-  return s:files(g:dir_vimrc . '/vimrc/*')
-endfunction
-function! s:comp_gvimrc(ArgLead, CmdLine, CursorPos)
-  return s:files(g:dir_vimrc . '/gvimrc/*')
+function! s:comp_vimrc_cb(ArgLead, CmdLine, CursorPos)
+  echom 'ArgLead=' . a:ArgLead
+  "echom 'CursorPos=' . a:CursorPos
+  " 先頭はコマンド名なので不要
+  "let inputFiles = a:CmdLine->split('\s')[1:]
+  "let inputFile = inputFiles->len() == 0 ? '' : inputFiles[0]
+  "echom 'CmdLine=' . inputFile
+  let r = (g:dir_vimrc . '/**')
+    \ ->glob()
+    \ ->split('\n')
+    \ ->filter({i, path -> path =~ 'vim$' && path !~ 'local.vim$' })
+    \ ->map({i, path -> path->fnamemodify(':~')->substitute('\M' . g:dir_vimrc . '/', '', '')}) " 置換文字はnomagicで
+    \ ->filter({i, path -> path =~ '\M^' . a:ArgLead})
+    \ ->sort()
+  echom 'result=' . r->join()
+  return r
 endfunction
 
 function! s:vimrc_open(dir_vimrc, file)
-  let path = a:dir_vimrc . (empty(a:file) ? '/..' : '/' . a:file)
-  if !empty(glob(path))
-    exe join(['tabe', path])
-  else
+  let path = a:dir_vimrc . '/' . a:file
+  if path->glob()->empty()
     echom 'Not Found! ' . path
+  else
+    exe ['tabe', path]->join()
   endif
 endfunction
 
@@ -39,7 +43,7 @@ command! Bd bufdo bd!
 command! -nargs=? -complete=file T tabe <args>
 command! TA tab ball
 command! MessageClear for n in range(200) | echom '' | endfor
-command! CdCurrent if !empty(glob(expand('%:p:h'))) | cd %:p:h | endif
+command! CdCurrent if !expand('%:p:h')->glob()->empty() | cd %:p:h | endif
 command! -nargs=1 System exe 'CdCurrent' | echo system(<q-args>)
 
 command! SetWrap setl wrap | set ve=

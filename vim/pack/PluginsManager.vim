@@ -37,30 +37,34 @@ endfunction
 "endfunction
 
 "---------------------------------------------------------------------------
-function! s:hooks.nerdtree() abort
-  " 使ったら閉じる
-  " let g:NERDTreeQuitOnOpen=3
-  " ブックマーク表示
-  let g:NERDTreeShowBookmarks=1
-  " 隠しファイル表示
-  let g:NERDTreeShowHidden=1
-
-  " x: system実行
-  call NERDTreeAddKeyMap({
-    \   'key': 'x',
-    \   'callback': 'Callback_x',
-    \   'quickhelpText': 'open file',
-    \   'scope': 'FileNode',
-    \ })
-
-  function! Callback_x(filenode)
-    " TODO vitalなかったら
-    let v_file = vital#vital#import('System.File')
-    call v_file.open(a:filenode.path.str())
-  endfunction
-
-  nnoremap [space]n :NERDTreeToggle<CR>
-endfunction
+"function! s:hooks.nerdtree() abort
+"  " 使ったら閉じる
+"  " let g:NERDTreeQuitOnOpen=3
+"  " ブックマーク表示
+"  let g:NERDTreeShowBookmarks=1
+"  " 隠しファイル表示
+"  let g:NERDTreeShowHidden=1
+"
+"  " x: system実行
+"  call NERDTreeAddKeyMap({
+"    \   'key': 'x',
+"    \   'callback': 'Callback_x',
+"    \   'quickhelpText': 'open file',
+"    \   'scope': 'FileNode',
+"    \ })
+"
+"  function! Callback_x(filenode)
+"    " TODO vitalなかったら
+"    let v_file = vital#vital#import('System.File')
+"    call v_file.open(a:filenode.path.str())
+"  endfunction
+"
+"  augroup FileExplorer
+"    autocmd!
+"  augroup END
+"
+"  nnoremap [space]n :NERDTreeToggle<CR>
+"endfunction
 
 "---------------------------------------------------------------------------
 "function! s:hooks.syntastic() abort
@@ -119,9 +123,12 @@ function! s:hooks.fern() abort
   let g:fern#default_hidden=1
   let g:fern#drawer_keep=v:true
   let g:fern#drawer_width=50
-  " TODO Explore(netrw)の上書きしてほしい
-  " TODO -でセレクトしながら下がってほしい
-  " TODO 一括リネーム確認
+  let g:fern#disable_drawer_smart_quit=1
+
+  " TODO BufEnter(tabe)の上書きしたい
+  augroup NERDTreeHijackNetrw
+    autocmd VimEnter * silent! autocmd! FileExplorer
+  augroup END
 
   function! s:hook_type_fern() abort
     " 折り返さない
@@ -140,6 +147,7 @@ endfunction
 function! s:hooks.fern_bookmark() abort
   " TODO bookmark <CR>でタブ開かず、開いているバッファに上書きしたい
   " TODO bookmark ~がパースされないので、フルパスで書こうとすると、リポジトリにいれづらい
+  let g:fern#mapping#bookmark#disable_default_mappings=1
   let g:fern#scheme#bookmark#store#file='~/.fern_bookmark.json'
 
   nnoremap [space]b :Fern bookmark:/// -drawer -toggle<CR>
