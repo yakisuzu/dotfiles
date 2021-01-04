@@ -1,33 +1,24 @@
 scriptencoding utf-8
 "---------------------------------------------------------------------------
 " vimrc
-command! VimrcSo so ~/_vimrc
-command! GVimrcSo so ~/_gvimrc
+command! VimrcSo so ~/_vimrc | so ~/_gvimrc
 
-command! VimrcLocalOpen tabe ~/_vimrc_local
-"command! -nargs=? -complete=file
-command! -nargs=? -complete=customlist,s:comp_vimrc_cb
-      \ VimrcOpen call s:vimrc_open(g:dir_vimrc, <q-args>)
+command! VimrcOpenLocal tabe ~/_vimrc_local
+command! -nargs=? -complete=customlist,s:comp_vimrc_open
+      \ VimrcOpen call s:exe_vimrc_open(g:dir_vimrc, <q-args>)
 
-function! s:comp_vimrc_cb(ArgLead, CmdLine, CursorPos)
-  echom 'ArgLead=' . a:ArgLead
-  "echom 'CursorPos=' . a:CursorPos
-  " 先頭はコマンド名なので不要
-  "let inputFiles = a:CmdLine->split('\s')[1:]
-  "let inputFile = inputFiles->len() == 0 ? '' : inputFiles[0]
-  "echom 'CmdLine=' . inputFile
-  let r = (g:dir_vimrc . '/**')
+function! s:comp_vimrc_open(ArgLead, CmdLine, CursorPos)
+  " 正規表現は^M nomagicで
+  return (g:dir_vimrc . '/**')
     \ ->glob()
     \ ->split('\n')
     \ ->filter({i, path -> path =~ 'vim$' && path !~ 'local.vim$' })
-    \ ->map({i, path -> path->fnamemodify(':~')->substitute('\M' . g:dir_vimrc . '/', '', '')}) " 置換文字はnomagicで
-    \ ->filter({i, path -> path =~ '\M^' . a:ArgLead})
+    \ ->map({i, path -> path->fnamemodify(':~')->substitute('\M' . g:dir_vimrc . '/', '', '')})
+    \ ->filter({i, path -> path =~ '\M' . a:ArgLead})
     \ ->sort()
-  echom 'result=' . r->join()
-  return r
 endfunction
 
-function! s:vimrc_open(dir_vimrc, file)
+function! s:exe_vimrc_open(dir_vimrc, file)
   let path = a:dir_vimrc . '/' . a:file
   if path->glob()->empty()
     echom 'Not Found! ' . path
