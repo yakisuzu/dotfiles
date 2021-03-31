@@ -31,13 +31,12 @@ https://github.com/yakisuzu.keys
 ```
 /usr/bin/ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
 brew tap AdoptOpenJDK/openjdk
-brew install adoptopenjdk11 adoptopenjdk8
+brew install --cask adoptopenjdk11 adoptopenjdk8
 brew reinstall openssl
 brew install openssh git tree p7zip maven sbt tig tmux anyenv jq coreutils gnu-sed
 
-# cask
-brew install appcleaner alfred adobe-acrobat-reader macvim docker slack jetbrains-toolbox kindle mysqlworkbench
-brew install chatwork calibre karabiner-elements
+brew install --cask appcleaner alfred adobe-acrobat-reader macvim docker slack jetbrains-toolbox kindle mysqlworkbench
+brew install --cask chatwork calibre karabiner-elements
 
 # dependencies python3
 brew install readline xz openssl@1.1
@@ -47,7 +46,7 @@ brew install bash-completion
 
 # cloud infra
 brew install awscli
-brew install google-cloud-sdk
+brew install --cask google-cloud-sdk
 
 # gcp
 curl -o cloud_sql_proxy https://dl.google.com/cloudsql/cloud_sql_proxy.darwin.amd64
