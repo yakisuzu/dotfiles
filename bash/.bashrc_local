@@ -3,11 +3,11 @@ echo read .bashrc_local
 echo ------------------
 
 # anyenv
-#goenv global 1.12.5
+#goenv global 1.16.2
 #jenv global 11.0
-#nodenv global 12.4.0
-#pyenv global 2.7.16
-#rbenv global 2.6.3
+#nodenv global 14.16.0
+#pyenv global 2.7.18
+#rbenv global 2.7.2
 
 # PATH
 ## mysql
@@ -33,5 +33,5 @@ gcloud config configurations list
 echo -------
 echo kubectl
 echo -------
-kubectl config use-context docker-for-desktop
+kubectl config use-context docker-desktop
 kubectl config get-contexts

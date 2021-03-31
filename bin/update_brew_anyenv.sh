@@ -26,6 +26,7 @@ nodenv versions
 echo "- nodenv available"
 nodenv install -l | grep '^10\.' | tail -3 | sed -e 's/^/  /'
 nodenv install -l | grep '^12\.' | tail -3 | sed -e 's/^/  /'
+nodenv install -l | grep '^14\.' | tail -3 | sed -e 's/^/  /'
 
 echo ""
 echo "-----------------------------"
@@ -41,4 +42,5 @@ echo "- rbenv versions"
 rbenv versions
 echo "- rbenv available"
 rbenv install -l 2>/dev/null | grep '^2' | tail -3 | sed -e 's/^/  /'
+rbenv install -l 2>/dev/null | grep '^3' | tail -3 | sed -e 's/^/  /'
 
