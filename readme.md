@@ -274,12 +274,10 @@ https://github.com/yakisuzu/intellij-settings.git
 
 ## plugins
 - AWS CloudFormation  
-- BashSupport  
 - File Watchers  
 - Go  
 - Python  
 - IdeaVim  
-- Ideolog  
 - Kubernetes  
 - Lombok  
 - Makefile Support  
@@ -287,5 +285,3 @@ https://github.com/yakisuzu/intellij-settings.git
 - Prettier  
 - Scala  
 - Vue.js  
-- EnvFile  
-
