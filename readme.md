@@ -35,7 +35,7 @@ brew install --cask adoptopenjdk11 adoptopenjdk8
 brew reinstall openssl
 brew install openssh git tree p7zip maven sbt tig tmux anyenv jq coreutils gnu-sed
 
-brew install --cask appcleaner alfred adobe-acrobat-reader macvim docker slack jetbrains-toolbox kindle mysqlworkbench
+brew install --cask appcleaner alfred adobe-acrobat-reader macvim docker slack jetbrains-toolbox kindle mysqlworkbench zoom
 brew install --cask chatwork calibre karabiner-elements
 
 # dependencies python3
