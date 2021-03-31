@@ -16,6 +16,9 @@ https://github.com/yakisuzu.keys
 
 
 # mac
+## bash
+`chsh -s /bin/bash`  
+
 ## DL
 `git clone git@github.com:yakisuzu/dotfiles.git ~/dotfiles`  
 
@@ -27,14 +30,14 @@ https://github.com/yakisuzu.keys
 [Homebrew](https://brew.sh/index_ja)  
 ```
 /usr/bin/ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
-#brew tap homebrew/cask-versions
 brew tap AdoptOpenJDK/openjdk
-brew cask install adoptopenjdk11 adoptopenjdk8
+brew install adoptopenjdk11 adoptopenjdk8
 brew reinstall openssl
 brew install openssh git tree p7zip maven sbt tig tmux anyenv jq coreutils gnu-sed
-brew cask install appcleaner alfred adobe-acrobat-reader macvim docker slack jetbrains-toolbox kindle mysqlworkbench
 
-brew cask install chatwork calibre karabiner-elements
+# cask
+brew install appcleaner alfred adobe-acrobat-reader macvim docker slack jetbrains-toolbox kindle mysqlworkbench
+brew install chatwork calibre karabiner-elements
 
 # dependencies python3
 brew install readline xz openssl@1.1
@@ -44,15 +47,19 @@ brew install bash-completion
 
 # cloud infra
 brew install awscli
-brew cask install google-cloud-sdk
+brew install google-cloud-sdk
 
 # gcp
 curl -o cloud_sql_proxy https://dl.google.com/cloudsql/cloud_sql_proxy.darwin.amd64
 chmod +x cloud_sql_proxy && mv cloud_sql_proxy /usr/local/bin/
+
+# 再起動
+exit
 ```
 
 ### anyenv
 ```
+# anyenv
 anyenv install --init
 anyenv install goenv
 anyenv install jenv
@@ -62,6 +69,9 @@ anyenv install rbenv
 
 mkdir -p $(anyenv root)/plugins
 git clone https://github.com/znz/anyenv-update.git $(anyenv root)/plugins/anyenv-update
+
+# 再起動
+exit
 
 # goenv
 goenv install -l | tail -3
@@ -77,8 +87,7 @@ jenv add $(/usr/libexec/java_home -v 11)
 jenv enable-plugin export
 
 # nodenv
-nodenv install -l | grep '^10\.' | tail -3
-nodenv install -l | grep '^12\.' | tail -3
+nodenv install -l | grep '^14\.' | tail -3
 nodenv install ${LTS}
 
 # pyenv
@@ -90,7 +99,11 @@ pyenv install ${3.X}
 
 # rbenv
 rbenv install -l | grep '^2' | tail -3
+rbenv install -l | grep '^3' | tail -3
 rbenv install ${2.X}
+
+# 再起動
+exit
 ```
 
 ### kubernetes
@@ -113,8 +126,6 @@ brew install ricty
 cp -f /usr/local/opt/ricty/share/fonts/Ricty*.ttf ~/Library/Fonts/
 fc-cache -vf
 ```
-
-### DL list
 
 
 ## after setting
