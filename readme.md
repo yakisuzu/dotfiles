@@ -1,15 +1,18 @@
 # common
+## chromeをwebから
+
 ## create keygen
-`ssh-keygen`  
+`ssh-keygen -t ed25519`  
 
 ### mac
-`cat ~/.ssh/id_rsa.pub | pbcopy`  
+`cat ~/.ssh/id_ed25519.pub | pbcopy`  
 
 ### win
-`more %USERPROFILE%\.ssh\id_rsa.pub | clip`  
+`more %USERPROFILE%\.ssh\id_ed25519.pub | clip`  
 
 ## add github ssh key
 webログインし、プロフィールから登録  
+https://github.com/yakisuzu.keys  
 
 
 # mac
@@ -29,9 +32,9 @@ brew tap AdoptOpenJDK/openjdk
 brew cask install adoptopenjdk11 adoptopenjdk8
 brew reinstall openssl
 brew install openssh git tree p7zip maven sbt tig tmux anyenv jq coreutils gnu-sed
-brew cask install appcleaner alfred adobe-acrobat-reader macvim docker slack jetbrains-toolbox calibre kindle karabiner-elements
+brew cask install appcleaner alfred adobe-acrobat-reader macvim docker slack jetbrains-toolbox kindle mysqlworkbench
 
-brew cask install chatwork mysqlworkbench
+brew cask install chatwork calibre karabiner-elements
 
 # dependencies python3
 brew install readline xz openssl@1.1
