@@ -186,6 +186,12 @@ fc-cache -vf
     - コマンドを実行：tmux  
     - シェルの終了時：シェルが正常に終了した場合は閉じる  
 
+
+## Finder
+- 詳細  
+  - ON: すべてのファイル名拡張子を表示  
+
+
 ## Karabiner-Elements
 - Simple Modifications (HHKB)  
 
