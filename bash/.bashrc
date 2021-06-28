@@ -21,7 +21,7 @@ function MACRC(){
   eval "$(anyenv init -)"
 
   # homebrew
-  BREW_PREFIX="`brew --prefix`"
+  export BREW_PREFIX="`brew --prefix`"
   export PATH="$BREW_PREFIX/sbin:$PATH"
 
   # bash@3.2 completion
@@ -32,7 +32,7 @@ function MACRC(){
   alias gvim="open /Applications/MacVim.app"
 
   # gcloud
-  GCLOUD_HOME="$BREW_PREFIX/Caskroom/google-cloud-sdk/latest/google-cloud-sdk"
+  export GCLOUD_HOME="$BREW_PREFIX/Caskroom/google-cloud-sdk/latest/google-cloud-sdk"
   [ -e "$GCLOUD_HOME/path.bash.inc" ] && . "$GCLOUD_HOME/path.bash.inc"
   [ -e "$GCLOUD_HOME/completion.bash.inc" ] && . "$GCLOUD_HOME/completion.bash.inc"
 
