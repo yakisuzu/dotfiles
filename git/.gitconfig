@@ -31,9 +31,9 @@
 	coam = commit --amend -m
 	r = restore
 	rs = restore --staged
-	ch = checkout
-	chb = checkout -b
-	chm = checkout master
+	sw = switch
+	swc = switch -c
+	swm = switch master
 	f = fetch -p
 	b = branch
 	l = log
