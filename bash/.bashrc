@@ -99,7 +99,8 @@ function PS1RC(){
   local PS1_USER_HOST="${COLOR_SYAN}\u@\h${COLOR_END}"
   local PS1_DIR="${COLOR_RED}\w${COLOR_END}"
   local PS1_INPUT_LINE='$ '
-  export PS1="${PS1_USER_HOST} ${PS1_DIR}\n${PS1_INPUT_LINE}"
+  local PS1_GIT=${COLOR_LIGHT_GREEN}'$(__git_ps1)'${COLOR_END}
+  export PS1="${PS1_USER_HOST} ${PS1_DIR}${PS1_GIT}\n${PS1_INPUT_LINE}"
 }
 PS1RC && unset PS1RC
 
