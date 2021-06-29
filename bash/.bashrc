@@ -29,7 +29,7 @@ function MACRC(){
 
   # git completion
   [[ -r "$BREW_PREFIX/opt/git/etc/bash_completion.d/git-completion.bash" ]] && . "$BREW_PREFIX/opt/git/etc/bash_completion.d/git-completion.bash"
-  [[ -r "$BREW_PREFIX/opt/git/etc/bash_completion.d/git-prompt.bash" ]] && . "$BREW_PREFIX/opt/git/etc/bash_completion.d/git-prompt.bash"
+  #[[ -r "$BREW_PREFIX/opt/git/etc/bash_completion.d/git-prompt.bash" ]] && . "$BREW_PREFIX/opt/git/etc/bash_completion.d/git-prompt.bash"
 
   # vim
   alias vim="/Applications/MacVim.app/Contents/MacOS/Vim"
@@ -98,10 +98,7 @@ function PS1RC(){
   local COLOR_LIGHT_SYAN='\[\033[1;36m\]'
   local PS1_USER_HOST="${COLOR_SYAN}\u@\h${COLOR_END}"
   local PS1_DIR="${COLOR_RED}\w${COLOR_END}"
-  local PS1_GIT_USER_NAME='$(git config user.name)'
-  local PS1_GIT_USER_EMAIL='$(git config user.email)'
-  local PS1_GIT_AUTHER="\$([ -d ./.git ] && echo \"${PS1_GIT_USER_NAME} <${PS1_GIT_USER_EMAIL}>\")"
-  local PS1_GIT=${COLOR_LIGHT_GREEN}'$(__git_ps1) '${PS1_GIT_AUTHER}${COLOR_END}
+  local PS1_GIT=${COLOR_LIGHT_GREEN}"\$([ -d ./.git ] && git log --pretty='format:%C(auto)%d' -n 1 && printf \" \$(git config user.name) <\$(git config user.email)>\")"${COLOR_END}
   local PS1_INPUT_LINE='$ '
   export PS1="${PS1_USER_HOST} ${PS1_DIR}${PS1_GIT}\n${PS1_INPUT_LINE}"
 }

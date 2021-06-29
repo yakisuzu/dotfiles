@@ -34,7 +34,7 @@
 	sw = switch
 	swc = switch -c
 	swm = switch master
-	f = fetch -p
+	fetch = fetch -p
 	b = branch
 	l = log
 	ln = log -n 3
