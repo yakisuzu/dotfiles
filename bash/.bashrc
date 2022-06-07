@@ -48,7 +48,9 @@ function MACRC(){
   . <(eksctl completion bash)
 
   # GNU
+  export PATH="$BREW_PREFIX/opt/grep/libexec/gnubin:$PATH"
   export PATH="$BREW_PREFIX/opt/gnu-sed/libexec/gnubin:$PATH"
+  export PATH="$BREW_PREFIX/opt/findutils/libexec/gnubin:$PATH"
   export PATH="$BREW_PREFIX/opt/coreutils/libexec/gnubin:$PATH"
 
   # openssl

@@ -3,6 +3,7 @@ echo ------------------
 echo read .bash_profile
 echo ------------------
 
+TERM="xterm"
 OS_NAME=$(uname -s | sed 's/[\.0-9-]//g')
 case "$OS_NAME" in
   "Darwin" | "MSYS_NT" | "MINGW_NT" )

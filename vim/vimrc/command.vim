@@ -40,8 +40,8 @@ command! -nargs=1 System exe 'CdCurrent' | echo system(<q-args>)
 command! SetWrap setl wrap | set ve=
 command! SetWrapNo setl nowrap | set ve=all
 
-command! EditUtf8 set enc=utf8 | e! ++enc=utf8 ++ff=unix
-command! EditCp932 set enc=cp932 | e! ++enc=cp932 ++ff=dos
+command! SetUtf8 set enc=utf8 | e! ++enc=utf8 ++ff=unix
+command! SetCp932 set enc=cp932 | e! ++enc=cp932 ++ff=dos
 
 command! YankFileName let @+ = expand('%:p:t') | echo @+
 command! YankFileNameSimple let @+ = expand('%:p:t:r') | echo @+
