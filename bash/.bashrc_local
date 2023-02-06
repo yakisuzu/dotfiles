@@ -26,6 +26,7 @@ export AWS_PROFILE=default
 echo ------
 echo gcloud
 echo ------
+export CLOUDSDK_PYTHON=`pyenv prefix`/bin/python
 gcloud config configurations activate default
 gcloud config configurations list
 
