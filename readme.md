@@ -30,8 +30,7 @@ https://github.com/yakisuzu.keys
 [Homebrew](https://brew.sh/index_ja)  
 ```
 /usr/bin/ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
-brew tap AdoptOpenJDK/openjdk
-brew install --cask adoptopenjdk11 adoptopenjdk8
+brew install --cask corretto8 corretto11 corretto17
 brew reinstall openssl
 brew install openssh git tree p7zip maven sbt tig tmux anyenv jq coreutils findutils gnu-sed grep wdiff
 
@@ -82,6 +81,7 @@ goenv install ${1.X}
 # javaはbrewでいれ、参照を登録
 jenv add $(/usr/libexec/java_home -v 1.8)
 jenv add $(/usr/libexec/java_home -v 11)
+jenv add $(/usr/libexec/java_home -v 17)
 # JAVA_HOMEの有効化
 jenv enable-plugin export
 
