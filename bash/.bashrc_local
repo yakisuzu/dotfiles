@@ -2,19 +2,20 @@ echo ------------------
 echo read .bashrc_local
 echo ------------------
 
+BREW_PREFIX=`brew --prefix`
+
 # anyenv
-#goenv global 1.16.2
+#goenv global 1.16.3
 #jenv global 17
-#nodenv global 14.16.0
-#pyenv global 2.7.18
-#rbenv global 2.7.2
+#nodenv global 16.18.1
+#pyenv global 3
+#rbenv global 2.7.3
 
 # PATH
 ## mysql
 #export PATH="$PATH:/Applications/MySQLWorkbench.app/Contents/MacOS"
 
 ## AWS@1
-#BREW_PREFIX=`brew --prefix`
 #export PATH="$BREW_PREFIX/opt/awscli@1/bin:$PATH"
 #[ -e "$BREW_PREFIX/opt/awscli@1/etc/bash_completion.d/" ] && . $BREW_PREFIX/opt/awscli@1/etc/bash_completion.d/*
 
@@ -27,6 +28,7 @@ echo ------
 echo gcloud
 echo ------
 export CLOUDSDK_PYTHON=`pyenv prefix`/bin/python
+[ -e "$BREW_PREFIX/share/google-cloud-sdk/" ] && . "$BREW_PREFIX/share/google-cloud-sdk/path.bash.inc"
 gcloud config configurations activate default
 gcloud config configurations list
 
