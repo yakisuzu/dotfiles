@@ -1,5 +1,8 @@
 # common
-## chromeをwebから
+## pcセットアップ
+ユーザー名調整  
+OSアップデート  
+chromeをwebからインストール
 
 ## create keygen
 `ssh-keygen -t ed25519`  
@@ -27,9 +30,9 @@ https://github.com/yakisuzu.keys
 
 ## apps setup
 ### Homebrew
-[Homebrew](https://brew.sh/index_ja)  
+[Homebrew](https://brew.sh/ja/)  
 ```
-/usr/bin/ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 brew install --cask corretto8 corretto11 corretto17
 brew reinstall openssl
 brew install openssh git tree p7zip maven sbt tig tmux anyenv jq coreutils findutils gnu-sed grep wdiff
