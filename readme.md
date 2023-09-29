@@ -36,9 +36,9 @@ https://github.com/yakisuzu.keys
 brew tap homebrew/cask-versions
 brew install --cask corretto8 corretto11 corretto17
 brew reinstall openssl
-brew install openssh git tree p7zip maven sbt tig tmux anyenv jq coreutils findutils gnu-sed grep wdiff
+brew install openssh git tree p7zip maven sbt tig tmux anyenv jq coreutils findutils gnu-sed grep wdiff mysql-client@8.0 go
 
-brew install --cask appcleaner alfred adobe-acrobat-reader macvim docker slack jetbrains-toolbox kindle zoom mysql-client@8.0
+brew install --cask appcleaner alfred adobe-acrobat-reader macvim docker slack jetbrains-toolbox kindle zoom
 brew install --cask chatwork calibre karabiner-elements mysqlworkbench
 
 # completion for bash@3.2
