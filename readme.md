@@ -33,15 +33,13 @@ https://github.com/yakisuzu.keys
 [Homebrew](https://brew.sh/ja/)  
 ```
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+brew tap homebrew/cask-versions
 brew install --cask corretto8 corretto11 corretto17
 brew reinstall openssl
 brew install openssh git tree p7zip maven sbt tig tmux anyenv jq coreutils findutils gnu-sed grep wdiff
 
-brew install --cask appcleaner alfred adobe-acrobat-reader macvim docker slack jetbrains-toolbox kindle mysqlworkbench zoom
-brew install --cask chatwork calibre karabiner-elements
-
-# dependencies python3
-brew install readline xz openssl@1.1
+brew install --cask appcleaner alfred adobe-acrobat-reader macvim docker slack jetbrains-toolbox kindle zoom mysql-client@8.0
+brew install --cask chatwork calibre karabiner-elements mysqlworkbench
 
 # completion for bash@3.2
 brew install bash-completion
@@ -62,21 +60,15 @@ exit
 ```
 # anyenv
 anyenv install --init
-anyenv install goenv
 anyenv install jenv
 anyenv install nodenv
 anyenv install pyenv
-anyenv install rbenv
 
 mkdir -p $(anyenv root)/plugins
 git clone https://github.com/znz/anyenv-update.git $(anyenv root)/plugins/anyenv-update
 
 # 再起動
 exit
-
-# goenv
-goenv install -l | tail -3
-goenv install ${1.X}
 
 # jenv
 # install済みjavaのpath確認
@@ -89,7 +81,9 @@ jenv add $(/usr/libexec/java_home -v 17)
 jenv enable-plugin export
 
 # nodenv
-nodenv install -l | grep '^14\.' | tail -3
+nodenv install -l | grep '^16\.' | tail -3
+nodenv install -l | grep '^18\.' | tail -3
+nodenv install -l | grep '^20\.' | tail -3
 nodenv install ${LTS}
 
 # pyenv
@@ -98,11 +92,6 @@ pyenv install ${2.X}
 
 pyenv install -l | grep '^  3' | tail -3
 pyenv install ${3.X}
-
-# rbenv
-rbenv install -l | grep '^2' | tail -3
-rbenv install -l | grep '^3' | tail -3
-rbenv install ${2.X}
 
 # 再起動
 exit
@@ -132,42 +121,37 @@ fc-cache -vf
 
 ## after setting
 ### システム環境設定  
-- Dockとメニューバー  
+- デスクトップとDock  
   - ON: Dockを自動的に表示/非表示  
   - OFF: 最近使ったアプリケーションをDockに表示  
-- セキュリティとプライバシー  
-  - 一般  
-    - ON: スリープとスクリーンセーバの解除にパスワードを要求 開始後：5分後に  
+- ロック画面  
+  - 使用していない場合はスクリーンセーバを開始：5分後  
+  - スクリーンセーバの開始後またはディスプレイがオフになったあとにパスワードを要求：1時間後  
 - キーボード  
   - キーボード  
     - キーリピート: 最速  
     - リピート入力認識までの時間: 最短  
-    - Fn/TouchBarはモデルで設定が異なる  
-      - 物理  
+    - キーボードショートカット  
+      - Spotlight  
+        - OFF: Spotlight検索を表示(command+space)  
+      - ファンクションキー  
         - ON: F1、F2などのキーを標準のファンクションキーとして使用  
-      - TouchBar  
-        - TouchBarに表示する項目: F1、F2などのキー  
-        - Fnキーを押して: 何もしない  
-        - Fnキーを押したままにして: Control Stripを表示  
-        - ON: 外部キーボードのF1、F2などのキーを標準のファンクションキーとして使用  
-    - 修飾キーボタン（右下）  
-      - Caps Lockキー: Command  
-      - キーボードを選択してそれぞれ設定  
-  - ユーザ辞書  
-    - OFF: 文頭を自動的に大文字にする  
-    - OFF: スペースバーを2回押してピリオドを入力  
-    - OFF: スマート引用符とスマートダッシュを使用  
-  - ショートカット  
-    - Spotlight  
-      - OFF: Spotlight検索を表示(command+space)  
-  - 入力ソース  
-    - 入力モード:  
-      - ON: 半角カタカナ  
-    - OFF: ライブ変換  
-    - OFF: タイプミスを修正  
-    - 候補表示：  
-      - フォント: Ricty Regular  
-    - "¥"キーで入力する文字: \（バックスラッシュ）  
+      - 修飾キー  
+        - Caps Lockキー: Command  
+          - キーボードを選択してそれぞれ設定  
+  - テキスト入力  
+    - 入力ソース編集  
+      - すべての入力ソース  
+        - OFF: 文頭を自動的に大文字にする  
+        - OFF: スペースバーを2回押してピリオドを入力  
+        - OFF: スマート引用符とスマートダッシュを使用  
+      - 日本語  
+        - ON: 半角カタカナ  
+        - OFF: ライブ変換  
+        - OFF: タイプミスを修正  
+        - 候補表示：  
+          - フォント: Ricty Regular  
+        - "¥"キーで入力する文字: \（バックスラッシュ）  
 - トラックパッド  
   - ポイントとクリック  
     - OFF: 調べる＆データ検出  
@@ -184,7 +168,7 @@ fc-cache -vf
   - テキスト  
     - Ricty Bold 18pt.  
   - ウインドウ  
-    - ウインドウサイズ: 240 - 60  
+    - ウインドウサイズ: 150 - 40  
   - シェル  
     - コマンドを実行：tmux  
     - シェルの終了時：シェルが正常に終了した場合は閉じる  

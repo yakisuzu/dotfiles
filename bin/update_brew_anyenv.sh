@@ -7,13 +7,6 @@ anyenv update
 # conf
 echo ""
 echo "-----------------------------"
-echo "- goenv versions"
-goenv versions
-echo "- goenv available"
-goenv install -l | tail -3
-
-echo ""
-echo "-----------------------------"
 echo "- jenv versions"
 jenv versions
 echo "- jenv available"
@@ -27,6 +20,7 @@ echo "- nodenv available"
 nodenv install -l | grep '^14\.' | tail -3 | sed -e 's/^/  /'
 nodenv install -l | grep '^16\.' | tail -3 | sed -e 's/^/  /'
 nodenv install -l | grep '^18\.' | tail -3 | sed -e 's/^/  /'
+nodenv install -l | grep '^20\.' | tail -3 | sed -e 's/^/  /'
 
 echo ""
 echo "-----------------------------"
@@ -35,12 +29,3 @@ pyenv versions
 echo "- pyenv available"
 pyenv install -l | grep '^  2.[0-9]\+.[0-9]\+$' | tail -3
 pyenv install -l | grep '^  3.[0-9]\+.[0-9]\+$' | tail -3
-
-echo ""
-echo "-----------------------------"
-echo "- rbenv versions"
-rbenv versions
-echo "- rbenv available"
-rbenv install -l 2>/dev/null | grep '^2' | tail -3 | sed -e 's/^/  /'
-rbenv install -l 2>/dev/null | grep '^3' | tail -3 | sed -e 's/^/  /'
-
