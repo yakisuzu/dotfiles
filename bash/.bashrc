@@ -15,12 +15,11 @@ export COMPOSE_DOCKER_CLI_BUILD=1
 #########################
 function MACRC(){
   # PATH before
-  # FIXME https://github.com/syndbg/goenv/issues/72
-  export GOENV_DISABLE_GOPATH=1
   # TODO tmuxで重複するが、順番がかわるので宣言しなおし
   eval "$(anyenv init -)"
 
   # homebrew
+  eval "$(/opt/homebrew/bin/brew shellenv)"
   export BREW_PREFIX="`brew --prefix`"
   export PATH="$BREW_PREFIX/sbin:$PATH"
 

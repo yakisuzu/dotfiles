@@ -5,11 +5,9 @@ echo ------------------
 BREW_PREFIX=`brew --prefix`
 
 # anyenv
-#goenv global 1.16.3
 #jenv global 17
-#nodenv global 16.18.1
+#nodenv global 20.7.0
 #pyenv global 3
-#rbenv global 2.7.3
 
 # PATH
 ## mysql
