@@ -11,7 +11,7 @@ BREW_PREFIX=`brew --prefix`
 
 # PATH
 ## mysql
-#export PATH="$PATH:/Applications/MySQLWorkbench.app/Contents/MacOS"
+#export PATH="$PATH:$BREW_PREFIX/opt/mysql-client@8.0/bin"
 
 ## AWS@1
 #export PATH="$BREW_PREFIX/opt/awscli@1/bin:$PATH"
