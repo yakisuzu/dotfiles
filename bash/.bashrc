@@ -16,7 +16,6 @@ export COMPOSE_DOCKER_CLI_BUILD=1
 function MACRC(){
   # PATH before
   # TODO tmuxで重複するが、順番がかわるので宣言しなおし
-  eval "$(anyenv init -)"
 
   # homebrew
   eval "$(/opt/homebrew/bin/brew shellenv)"
@@ -45,6 +44,9 @@ function MACRC(){
   alias kx="kubectx"
   complete -o default -F __start_kubectl k
   . <(eksctl completion bash)
+
+  # ver固定をbrewよりも優先させる
+  eval "$(anyenv init -)"
 
   # GNU
   export PATH="$BREW_PREFIX/opt/grep/libexec/gnubin:$PATH"
