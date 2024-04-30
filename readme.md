@@ -34,7 +34,7 @@ https://github.com/yakisuzu.keys
 ```
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 brew tap homebrew/cask-versions
-brew install --cask corretto8 corretto11 corretto17
+brew install corretto@8 corretto@11 corretto@17
 brew reinstall openssl
 brew install openssh git tree p7zip maven sbt tig tmux anyenv jq coreutils findutils gnu-sed grep wdiff mysql-client@8.0 go
 
