@@ -20,6 +20,11 @@
 	ui = true
 [alias]
 	s = status
+	pp = pull -p
+	st = stash
+	stl = stash list
+	stp = stash pop
+	stre = !git stash && git rebase
 	d = diff
 	dw = diff --word-diff=plain
 	dc = diff --cached
@@ -31,10 +36,13 @@
 	coam = commit --amend -m
 	r = restore
 	rs = restore --staged
+	re = rebase
+	rem = rebase master
+	rec = rebase --continue
+	rea = rebase --abort
 	sw = switch
 	swc = switch -c
 	swm = switch master
-	fetch = fetch -p
 	b = branch
 	l = log
 	ln = log -n 3
