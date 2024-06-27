@@ -46,7 +46,7 @@ function MACRC(){
   . <(eksctl completion bash)
 
   # asdf
-
+  [[ -r "$BREW_PREFIX/opt/asdf/libexec/asdf.sh" ]] && . "$BREW_PREFIX/opt/asdf/libexec/asdf.sh"
   [[ -r "$BREW_PREFIX/etc/bash_completion.d/asdf.bash" ]] && . "$BREW_PREFIX/etc/bash_completion.d/asdf.bash"
 
   # ver固定をbrewよりも優先させる
