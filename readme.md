@@ -34,9 +34,9 @@ https://github.com/yakisuzu.keys
 ```
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 brew tap homebrew/cask-versions
-brew install corretto@8 corretto@11 corretto@17
+brew install corretto@8 corretto@11 corretto@17 corretto@21
 brew reinstall openssl
-brew install openssh git tree p7zip maven sbt tig tmux anyenv jq coreutils findutils gnu-sed grep wdiff mysql-client@8.0 go
+brew install openssh git tree p7zip maven sbt tig tmux anyenv jq coreutils findutils gnu-sed grep wdiff mysql-client@8.0 go asdf
 
 brew install --cask appcleaner alfred adobe-acrobat-reader macvim docker slack jetbrains-toolbox kindle zoom
 brew install --cask chatwork calibre karabiner-elements mysqlworkbench
@@ -77,11 +77,11 @@ exit
 jenv add $(/usr/libexec/java_home -v 1.8)
 jenv add $(/usr/libexec/java_home -v 11)
 jenv add $(/usr/libexec/java_home -v 17)
+jenv add $(/usr/libexec/java_home -v 21)
 # JAVA_HOMEの有効化
 jenv enable-plugin export
 
 # nodenv
-nodenv install -l | grep '^16\.' | tail -3
 nodenv install -l | grep '^18\.' | tail -3
 nodenv install -l | grep '^20\.' | tail -3
 nodenv install ${LTS}

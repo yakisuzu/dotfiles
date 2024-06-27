@@ -45,6 +45,10 @@ function MACRC(){
   complete -o default -F __start_kubectl k
   . <(eksctl completion bash)
 
+  # asdf
+
+  [[ -r "$BREW_PREFIX/etc/bash_completion.d/asdf.bash" ]] && . "$BREW_PREFIX/etc/bash_completion.d/asdf.bash"
+
   # ver固定をbrewよりも優先させる
   eval "$(anyenv init -)"
 
