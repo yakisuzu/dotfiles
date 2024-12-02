@@ -17,10 +17,9 @@ echo "-----------------------------"
 echo "- nodenv versions"
 nodenv versions
 echo "- nodenv available"
-nodenv install -l | grep '^14\.' | tail -3 | sed -e 's/^/  /'
-nodenv install -l | grep '^16\.' | tail -3 | sed -e 's/^/  /'
-nodenv install -l | grep '^18\.' | tail -3 | sed -e 's/^/  /'
-nodenv install -l | grep '^20\.' | tail -3 | sed -e 's/^/  /'
+nodenv install -L | grep '^18\.' | tail -3 | sed -e 's/^/  /'
+nodenv install -L | grep '^20\.' | tail -3 | sed -e 's/^/  /'
+nodenv install -L | grep '^22\.' | tail -3 | sed -e 's/^/  /'
 
 echo ""
 echo "-----------------------------"

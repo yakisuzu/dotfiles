@@ -5,8 +5,8 @@ echo ------------------
 BREW_PREFIX=`brew --prefix`
 
 # anyenv
-#jenv global 17
-#nodenv global 20.7.0
+#jenv global 21
+#nodenv global 22.11.0
 #pyenv global 3
 
 # PATH
