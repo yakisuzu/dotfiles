@@ -272,19 +272,19 @@ endfunction
 "endfunction
 
 "---------------------------------------------------------------------------
-function! s:hooks.typescript_vim() abort
-  let g:typescript_compiler_binary = 'tsc'
-endfunction
+"function! s:hooks.typescript_vim() abort
+"  let g:typescript_compiler_binary = 'tsc'
+"endfunction
 
 "---------------------------------------------------------------------------
-function! s:hooks.vim_go() abort
-  let g:go_highlight_functions = 1
-  let g:go_highlight_methods = 1
-  let g:go_highlight_structs = 1
-  let g:go_highlight_interfaces = 1
-  let g:go_highlight_operators = 1
-  let g:go_highlight_build_constraints = 1
-endfunction
+"function! s:hooks.vim_go() abort
+"  let g:go_highlight_functions = 1
+"  let g:go_highlight_methods = 1
+"  let g:go_highlight_structs = 1
+"  let g:go_highlight_interfaces = 1
+"  let g:go_highlight_operators = 1
+"  let g:go_highlight_build_constraints = 1
+"endfunction
 
 "---------------------------------------------------------------------------
 function! g:PluginsManager() abort
@@ -294,7 +294,7 @@ function! g:PluginsManager() abort
     packadd vital.vim | call s:hooks.vital()
 
     packadd open-browser.vim | call s:hooks.open_browser()
-    packadd previm " depends open-browser.vim
+    "packadd previm " depends open-browser.vim
 
     "packadd vim-quickrun | call s:hooks.vim_quickrun()
     "packadd nerdtree | call s:hooks.nerdtree()
@@ -322,12 +322,12 @@ function! g:PluginsManager() abort
 
     augroup lazy_plugins
       autocmd!
-      autocmd FileType typescript packadd typescript-vim | call s:hooks.typescript_vim()
+      " autocmd FileType typescript packadd typescript-vim | call s:hooks.typescript_vim()
       " TODO wait 3.6
       " autocmd FileType python packadd jedi-vim
       " autocmd FileType python packadd flake8-vim
       " autocmd FileType python packadd vim-python-pep8-indent
-      autocmd FileType go packadd vim-go | call s:hooks.vim_go()
+      " autocmd FileType go packadd vim-go | call s:hooks.vim_go()
     augroup END
   endfunction
 

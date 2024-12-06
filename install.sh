@@ -44,10 +44,12 @@ COPY_NOT_EXISTS "$PWD/git/.gitignore_local" "$HOME/.gitignore_local"
 
 echo --------------------
 echo init vim
-LINK_OVERRIDE "$PWD/vim/gvimrc.vim" "$HOME/_gvimrc"
-LINK_OVERRIDE "$PWD/vim/vimrc.vim" "$HOME/_vimrc"
-COPY_NOT_EXISTS "$PWD/vim/vimrc_local.vim" "$HOME/_vimrc_local"
+LINK_OVERRIDE "$PWD/vim/_gvimrc.vim" "$HOME/_gvimrc"
+LINK_OVERRIDE "$PWD/vim/_vimrc.vim" "$HOME/_vimrc"
+COPY_NOT_EXISTS "$PWD/vim/_vimrc_local.vim" "$HOME/_vimrc_local"
 COPY_NOT_EXISTS "$PWD/vim/.fern_bookmark.json" "$HOME/.fern_bookmark.json"
+LINK_OVERRIDE "$PWD/vim/.ideavimrc" "$HOME/.ideavimrc"
+LINK_OVERRIDE "$PWD/vim/.vscodevimrc" "$HOME/.vscodevimrc"
 mkdir -p "$HOME/.vim"
 LINK_OVERRIDE "$PWD/vim/.vim/after" "$HOME/.vim/after"
 LINK_OVERRIDE "$PWD/vim/.vim/ftdetect" "$HOME/.vim/ftdetect"

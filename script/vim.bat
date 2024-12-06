@@ -4,9 +4,11 @@ exit /b
 rem ------------------------------
 :MAIN
   rem mklink file
-  for %%i in (.\vim\*vimrc.vim) do (
-    call :MKLINK %%i
-  )
+  call :MKLINK .\vim\_vimrc.vim
+  call :MKLINK .\vim\_vimrc_local.vim
+  call :MKLINK .\vim\_gvimrc.vim
+  call :MKLINK .\vim\.ideavimrc
+  call :MKLINK .\vim\.vscodevimrc
 
   rem mklink dir
   for /F "usebackq" %%i in (`dir /AD /B /S .\vim\.vim\*`) do (
@@ -16,7 +18,7 @@ exit /b
 
 rem ------------------------------
 :MKLINK
-  set f_link=%USERPROFILE%\_%~n1
+  set f_link=%USERPROFILE%\%~n1
   set f_file=%~dpnx1
 
   if exist "%f_link%" ( del "%f_link%" )

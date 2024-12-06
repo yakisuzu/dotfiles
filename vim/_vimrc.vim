@@ -16,6 +16,4 @@ call g:Import('vimrc/minpac')
 call g:Import('vimrc/set')
 call g:Import('vimrc/map')
 call g:Import('vimrc/command')
-"call g:Import('vimrc/vrapper')
-call g:Import('vimrc/ideavim')
 source ~/_vimrc_local

@@ -1,0 +1,30 @@
+" https://github.com/VSCodeVim/Vim
+
+"set nowrapscan         " vim.wrapscan
+"set clipboard+=unnamed " vim.useSystemClipboard
+"set nrformats=         " 進数の設定不要
+"set hlsearch           " vim.hlsearch
+"set ignorecase         " vim.ignorecase
+
+map <C-j> <Esc>
+map <Space> [space]
+noremap [space]h ^
+noremap [space]j <C-f>zz
+noremap [space]k <C-b>zz
+noremap [space]l $
+noremap <Leader>p "0p
+noremap <Leader>P "0P
+vnoremap * y/<C-r>0<CR>N
+vnoremap [space]/ :s///g<Left><Left>
+vnoremap <Leader>h y:tab<Space>help<Space><C-r>0
+nnoremap Y y$
+nnoremap n nzz
+nnoremap N Nzz
+nnoremap tg gT
+nnoremap zl 20zl
+nnoremap zh 20zh
+nnoremap * yiw/<C-r>0<CR>N
+nnoremap [space]/ :%s///g<Left><Left>
+nnoremap [space]o o<Esc>
+nnoremap [space]d :bd<CR>
+

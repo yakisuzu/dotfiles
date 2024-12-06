@@ -32,7 +32,7 @@ function! g:MinpacManager(vim_home) abort
     " for utility
     call minpac#add('vim-jp/vital.vim', op)
     call minpac#add('tyru/open-browser.vim', op)
-    call minpac#add('yakisuzu/previm', op)
+    "call minpac#add('yakisuzu/previm', op)
 
     "call minpac#add('thinca/vim-quickrun', op)
     "call minpac#add('scrooloose/nerdtree', op)
@@ -59,13 +59,13 @@ function! g:MinpacManager(vim_home) abort
     "call minpac#add('kana/vim-textobj-user', op)
     "call minpac#add('kana/vim-textobj-function', op)
     " for typescript
-    call minpac#add('leafgarland/typescript-vim', op)
+    "call minpac#add('leafgarland/typescript-vim', op)
     " for python
-    call minpac#add('davidhalter/jedi-vim', op)
-    call minpac#add('andviro/flake8-vim', op)
-    call minpac#add('hynek/vim-python-pep8-indent', op)
+    "call minpac#add('davidhalter/jedi-vim', op)
+    "call minpac#add('andviro/flake8-vim', op)
+    "call minpac#add('hynek/vim-python-pep8-indent', op)
     " for go
-    call minpac#add('fatih/vim-go', op)
+    "call minpac#add('fatih/vim-go', op)
   endfunction
 
   "---------------------------------------------------------------------------
