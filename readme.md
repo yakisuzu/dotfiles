@@ -33,13 +33,18 @@ https://github.com/yakisuzu.keys
 [Homebrew](https://brew.sh/ja/)  
 ```
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-brew tap homebrew/cask-versions
-brew install corretto@8 corretto@11 corretto@17 corretto@21
-brew reinstall openssl
-brew install openssh git tree p7zip maven sbt tig tmux anyenv jq coreutils findutils gnu-sed grep wdiff mysql-client@8.0 go asdf
+# java
+brew install corretto@21
+# option
+brew install corretto@8 corretto@11 corretto@17
 
-brew install --cask appcleaner alfred adobe-acrobat-reader macvim docker slack jetbrains-toolbox kindle zoom
-brew install --cask chatwork calibre karabiner-elements mysqlworkbench
+brew reinstall openssl
+brew install openssh git tree p7zip tig tmux jq coreutils findutils gnu-sed grep wdiff anyenv go asdf appcleaner alfred macvim visual-studio-code@insiders
+# option
+brew install maven sbt mysql-client@8.0
+
+brew install docker slack kindle zoom
+brew install chatwork calibre karabiner-elements
 
 # completion for bash@3.2
 brew install bash-completion
@@ -112,10 +117,7 @@ go get -u -v github.com/kubernetes-sigs/aws-iam-authenticator/cmd/aws-iam-authen
 
 ### Ricty
 ```
-brew tap sanemat/font
-brew install ricty
-cp -f /usr/local/opt/ricty/share/fonts/Ricty*.ttf ~/Library/Fonts/
-fc-cache -vf
+brew install font-ricty-diminished
 ```
 
 
@@ -150,7 +152,7 @@ fc-cache -vf
         - OFF: ライブ変換  
         - OFF: タイプミスを修正  
         - 候補表示：  
-          - フォント: Ricty Regular  
+          - フォント: Ricty Diminished Bold  
         - "¥"キーで入力する文字: \（バックスラッシュ）  
 - トラックパッド  
   - ポイントとクリック  
@@ -166,7 +168,7 @@ fc-cache -vf
   - 左メニュー  
     - Proをデフォルトに  
   - テキスト  
-    - Ricty Bold 18pt.  
+    - Ricty Diminished Bold 18pt.  
   - ウインドウ  
     - ウインドウサイズ: 150 - 40  
   - シェル  
