@@ -7,7 +7,6 @@
 	quotepath = false
 	autocrlf = false
 	ignorecase = false
-	pager = less --tabs=1,3,5,7,9
 [advice]
 	ignoredHook = false
 [pull]
