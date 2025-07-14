@@ -1,6 +1,8 @@
-echo ------------------
-echo read .bashrc_local
-echo ------------------
+if [[ "$IS_INTERACTIVE" == "true" ]]; then
+  echo ------------------
+  echo read .bashrc_local
+  echo ------------------
+fi
 
 BREW_PREFIX=`brew --prefix`
 
@@ -22,17 +24,25 @@ export AWS_PROFILE=default
 
 
 # gcloud
-echo ------
-echo gcloud
-echo ------
+if [[ "$IS_INTERACTIVE" == "true" ]]; then
+  echo ------
+  echo gcloud
+  echo ------
+fi
 export CLOUDSDK_PYTHON=`pyenv prefix`/bin/python
 [ -e "$BREW_PREFIX/share/google-cloud-sdk/" ] && . "$BREW_PREFIX/share/google-cloud-sdk/path.bash.inc"
-gcloud config configurations activate default
-gcloud config configurations list
+#gcloud config configurations activate default
+if [[ "$IS_INTERACTIVE" == "true" ]]; then
+  #gcloud config configurations list
+fi
 
 # kubectl
-echo -------
-echo kubectl
-echo -------
-kubectl config use-context docker-desktop
-kubectl config get-contexts
+if [[ "$IS_INTERACTIVE" == "true" ]]; then
+  echo -------
+  echo kubectl
+  echo -------
+fi
+#kubectl config use-context docker-desktop
+if [[ "$IS_INTERACTIVE" == "true" ]]; then
+  #kubectl config get-contexts
+fi

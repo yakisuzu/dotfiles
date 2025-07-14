@@ -1,7 +1,10 @@
 #!/bin/bash
-echo ------------
-echo read .bashrc
-echo ------------
+
+if [[ "$IS_INTERACTIVE" == "true" ]]; then
+  echo ------------
+  echo read .bashrc
+  echo ------------
+fi
 
 export LANG=ja_JP.UTF-8
 export LESSCHARSET=utf-8
@@ -24,10 +27,14 @@ function MACRC(){
   export PATH="$BREW_PREFIX/sbin:$PATH"
 
   # bash@3.2 completion
-  [[ -r "$BREW_PREFIX/etc/profile.d/bash_completion.sh" ]] && . "$BREW_PREFIX/etc/profile.d/bash_completion.sh"
+  if [[ "$IS_INTERACTIVE" == "true" ]]; then
+    [[ -r "$BREW_PREFIX/etc/profile.d/bash_completion.sh" ]] && . "$BREW_PREFIX/etc/profile.d/bash_completion.sh"
+  fi
 
   # git completion
-  [[ -r "$BREW_PREFIX/opt/git/etc/bash_completion.d/git-completion.bash" ]] && . "$BREW_PREFIX/opt/git/etc/bash_completion.d/git-completion.bash"
+  if [[ "$IS_INTERACTIVE" == "true" ]]; then
+    [[ -r "$BREW_PREFIX/opt/git/etc/bash_completion.d/git-completion.bash" ]] && . "$BREW_PREFIX/opt/git/etc/bash_completion.d/git-completion.bash"
+  fi
   #[[ -r "$BREW_PREFIX/opt/git/etc/bash_completion.d/git-prompt.bash" ]] && . "$BREW_PREFIX/opt/git/etc/bash_completion.d/git-prompt.bash"
 
   # vim
@@ -37,18 +44,33 @@ function MACRC(){
   # gcloud
   export GCLOUD_HOME="$BREW_PREFIX/Caskroom/google-cloud-sdk/latest/google-cloud-sdk"
   [ -e "$GCLOUD_HOME/path.bash.inc" ] && . "$GCLOUD_HOME/path.bash.inc"
-  [ -e "$GCLOUD_HOME/completion.bash.inc" ] && . "$GCLOUD_HOME/completion.bash.inc"
+  if [[ "$IS_INTERACTIVE" == "true" ]]; then
+    [ -e "$GCLOUD_HOME/completion.bash.inc" ] && . "$GCLOUD_HOME/completion.bash.inc"
+  fi
 
   # kubenetes
-  . <(kubectl completion bash)
-  alias k="kubectl"
-  alias kx="kubectx"
-  complete -o default -F __start_kubectl k
-  . <(eksctl completion bash)
+  if command -v kubectl >/dev/null 2>&1; then
+    alias k="kubectl"
+    # completion を読み込むかの判定
+    if [[ "$IS_INTERACTIVE" == "true" ]]; then
+      . <(kubectl completion bash)
+      complete -o default -F __start_kubectl k
+    fi
+  fi
+  if command -v kubectx >/dev/null 2>&1; then
+    alias kx="kubectx"
+  fi
+  if command -v eksctl >/dev/null 2>&1; then
+    if [[ "$IS_INTERACTIVE" == "true" ]]; then
+      . <(eksctl completion bash)
+    fi
+  fi
 
   # asdf
   [[ -r "$BREW_PREFIX/opt/asdf/libexec/asdf.sh" ]] && . "$BREW_PREFIX/opt/asdf/libexec/asdf.sh"
-  [[ -r "$BREW_PREFIX/etc/bash_completion.d/asdf.bash" ]] && . "$BREW_PREFIX/etc/bash_completion.d/asdf.bash"
+  if [[ "$IS_INTERACTIVE" == "true" ]]; then
+    [[ -r "$BREW_PREFIX/etc/bash_completion.d/asdf.bash" ]] && . "$BREW_PREFIX/etc/bash_completion.d/asdf.bash"
+  fi
 
   # ver固定をbrewよりも優先させる
   eval "$(anyenv init -)"
