@@ -87,8 +87,7 @@ jenv add $(/usr/libexec/java_home -v 21)
 jenv enable-plugin export
 
 # nodenv
-nodenv install -l | grep '^18\.' | tail -3
-nodenv install -l | grep '^20\.' | tail -3
+nodenv install -l | grep '^2.\.'
 nodenv install ${LTS}
 
 # pyenv
