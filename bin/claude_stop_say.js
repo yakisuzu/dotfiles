@@ -106,14 +106,18 @@ process.stdin.on('end', () => {
       }
 
       if (cleanText.length > 0) {
-        log(`Executing say command with text: ${cleanText.substring(0, 50)}...`);
-        const result = spawnSync('say', [cleanText], { stdio: 'inherit' });
-        log(`Say command exit code: ${result.status}`);
+        // 環境変数でvoicevoxを使うか判定
+        const useVoicevox = process.env.CLAUDE_USE_VOICEVOX === 'true';
+        const command = useVoicevox ? path.join(__dirname, 'voicevox') : 'say';
+
+        log(`Executing ${command} command with text: ${cleanText.substring(0, 50)}...`);
+        const result = spawnSync(command, [cleanText], { stdio: 'inherit' });
+        log(`${command} command exit code: ${result.status}`);
         if (result.error) {
-          log(`Say command error: ${result.error.message}`);
+          log(`${command} command error: ${result.error.message}`);
         }
       } else {
-        log('Clean text is empty, skipping say command');
+        log('Clean text is empty, skipping speech command');
       }
     } else {
       log('No assistant text found, skipping say command');

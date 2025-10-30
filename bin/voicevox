@@ -1,0 +1,64 @@
+#!/bin/bash
+
+# VOICEVOX API wrapper
+# Usage: voicevox "テキスト"
+#        voicevox --start
+
+set -e
+
+# デフォルト設定
+VOICEVOX_HOST="127.0.0.1"
+VOICEVOX_PORT="50021"
+SPEAKER="${VOICEVOX_SPEAKER:-1}"
+
+# --start オプション: Dockerコンテナを起動
+if [ "$1" = "--start" ]; then
+  echo "Starting VOICEVOX Docker container..." >&2
+  docker run --rm -d -p "${VOICEVOX_HOST}:${VOICEVOX_PORT}:${VOICEVOX_PORT}" voicevox/voicevox_engine:cpu-latest
+  echo "VOICEVOX engine started on http://${VOICEVOX_HOST}:${VOICEVOX_PORT}" >&2
+  exit 0
+fi
+
+# --stop オプション: Dockerコンテナを停止
+if [ "$1" = "--stop" ]; then
+  echo "Stopping VOICEVOX Docker container..." >&2
+  docker stop $(docker ps -q --filter ancestor=voicevox/voicevox_engine:cpu-latest)
+  echo "VOICEVOX engine stopped" >&2
+  exit 0
+fi
+
+if [ -z "$1" ]; then
+  echo "Usage: voicevox \"テキスト\"" >&2
+  echo "       voicevox --start" >&2
+  echo "       voicevox --stop" >&2
+  echo "" >&2
+  echo "Example: voicevox \"こんにちは\"" >&2
+  echo "" >&2
+  echo "Environment variables:" >&2
+  echo "  VOICEVOX_SPEAKER (default: 1)" >&2
+  exit 1
+fi
+
+TEXT="$1"
+
+# 一時ファイル
+TEMP_QUERY=$(mktemp)
+TEMP_WAV=$(mktemp).wav
+
+# クリーンアップ
+trap "rm -f $TEMP_QUERY $TEMP_WAV" EXIT
+
+# audio_query取得（POSTメソッドで送信）
+curl -s -X POST \
+  "http://${VOICEVOX_HOST}:${VOICEVOX_PORT}/audio_query?text=$(echo -n "${TEXT}" | jq -sRr @uri)&speaker=${SPEAKER}" \
+  -o "$TEMP_QUERY"
+
+# 音声合成
+curl -s -X POST \
+  "http://${VOICEVOX_HOST}:${VOICEVOX_PORT}/synthesis?speaker=${SPEAKER}" \
+  -H "Content-Type: application/json" \
+  -d @"$TEMP_QUERY" \
+  -o "$TEMP_WAV"
+
+# 再生（macOS）- 再生完了まで待機
+afplay "$TEMP_WAV"

@@ -120,6 +120,9 @@ go get -u -v github.com/kubernetes-sigs/aws-iam-authenticator/cmd/aws-iam-authen
 brew install font-ricty-diminished
 ```
 
+### voicevox
+docker pull voicevox/voicevox_engine:cpu-latest
+voicevox --start
 
 ## after setting
 ### システム環境設定  
