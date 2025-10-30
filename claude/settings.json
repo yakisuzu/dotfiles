@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [],
+    "deny": []
+  },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [],
+  "hooks": {
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "claude_stop_say.js"
+          }
+        ]
+      }
+    ]
+  }
+}
+

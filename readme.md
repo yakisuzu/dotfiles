@@ -39,12 +39,13 @@ brew install corretto@21
 brew install corretto@8 corretto@11 corretto@17
 
 brew reinstall openssl
-brew install openssh git tree p7zip tig tmux jq coreutils findutils gnu-sed grep wdiff anyenv go asdf appcleaner alfred macvim visual-studio-code@insiders
+brew install openssh git tree p7zip tig tmux jq coreutils findutils gnu-sed grep wdiff anyenv go asdf appcleaner alfred macvim visual-studio-code@insiders docker slack kindle zoom
 # option
-brew install maven sbt mysql-client@8.0
+brew install maven sbt mysql-client@8.0 chatwork calibre karabiner-elements
 
-brew install docker slack kindle zoom
-brew install chatwork calibre karabiner-elements
+# LLM
+brew install --cask claude-code
+brew install gemini-cli
 
 # completion for bash@3.2
 brew install bash-completion

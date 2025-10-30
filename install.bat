@@ -13,5 +13,9 @@ echo --------------------
 echo init vim
 call .\script\vim.bat
 
+echo --------------------
+echo init claude
+call .\script\claude.bat
+
 popd
 pause
