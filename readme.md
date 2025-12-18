@@ -34,25 +34,23 @@ https://github.com/yakisuzu.keys
 ```
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 # java
-brew install corretto@21
+brew install corretto@25
 # option
-brew install corretto@8 corretto@11 corretto@17
+brew install corretto@8 corretto@11 corretto@17 corretto@21
 
 brew reinstall openssl
-brew install openssh git tree p7zip tig tmux jq coreutils findutils gnu-sed grep wdiff anyenv go asdf appcleaner alfred macvim visual-studio-code@insiders docker slack kindle zoom
+brew install openssh git tree p7zip tig tmux jq coreutils findutils gnu-sed grep wdiff anyenv go asdf appcleaner alfred macvim visual-studio-code@insiders docker slack
 # option
-brew install maven sbt mysql-client@8.0 chatwork calibre karabiner-elements
+brew install zoom maven sbt mysql-client@8.0 chatwork calibre karabiner-elements
 
 # LLM
-brew install --cask claude-code
-brew install gemini-cli
+brew install claude-code gemini-cli
 
 # completion for bash@3.2
 brew install bash-completion
 
 # cloud infra
-brew install awscli
-brew install --cask google-cloud-sdk
+brew install awscli google-cloud-sdk
 
 # gcp
 curl -o cloud_sql_proxy https://dl.google.com/cloudsql/cloud_sql_proxy.darwin.amd64
@@ -84,6 +82,7 @@ jenv add $(/usr/libexec/java_home -v 1.8)
 jenv add $(/usr/libexec/java_home -v 11)
 jenv add $(/usr/libexec/java_home -v 17)
 jenv add $(/usr/libexec/java_home -v 21)
+jenv add $(/usr/libexec/java_home -v 25)
 # JAVA_HOMEの有効化
 jenv enable-plugin export
 
