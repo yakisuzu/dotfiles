@@ -39,7 +39,7 @@ brew install corretto@25
 brew install corretto@8 corretto@11 corretto@17 corretto@21
 
 brew reinstall openssl
-brew install openssh git tree p7zip tig tmux jq coreutils findutils gnu-sed grep wdiff anyenv go asdf appcleaner alfred macvim visual-studio-code@insiders docker slack
+brew install openssh git tree p7zip tig tmux jq coreutils findutils gnu-sed grep wdiff anyenv go asdf appcleaner alfred macvim visual-studio-code@insiders docker docker-desktop slack
 # option
 brew install zoom maven sbt mysql-client@8.0 chatwork calibre karabiner-elements
 
@@ -120,17 +120,19 @@ brew install font-ricty-diminished
 ```
 
 ### voicevox
+```
 docker pull voicevox/voicevox_engine:cpu-latest
 voicevox --start
+```
 
 ## after setting
-### システム環境設定  
+### システム環境設定
 - デスクトップとDock  
   - ON: Dockを自動的に表示/非表示  
-  - OFF: 最近使ったアプリケーションをDockに表示  
+  - OFF: アプリの提案と最近使用したアプリをDockに表示  
 - ロック画面  
-  - 使用していない場合はスクリーンセーバを開始：5分後  
   - スクリーンセーバの開始後またはディスプレイがオフになったあとにパスワードを要求：1時間後  
+- Touch ID  
 - キーボード  
   - キーボード  
     - キーリピート: 最速  
@@ -159,9 +161,6 @@ voicevox --start
 - トラックパッド  
   - ポイントとクリック  
     - OFF: 調べる＆データ検出  
-- 日付と時刻  
-- Touch ID  
-
 
 ### ターミナル
 - 一般  
