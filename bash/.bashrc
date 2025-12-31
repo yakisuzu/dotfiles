@@ -37,10 +37,6 @@ function MACRC(){
   fi
   #[[ -r "$BREW_PREFIX/opt/git/etc/bash_completion.d/git-prompt.bash" ]] && . "$BREW_PREFIX/opt/git/etc/bash_completion.d/git-prompt.bash"
 
-  # vim
-  alias vim="/Applications/MacVim.app/Contents/MacOS/Vim"
-  alias gvim="open /Applications/MacVim.app"
-
   # gcloud
   export GCLOUD_HOME="$BREW_PREFIX/Caskroom/google-cloud-sdk/latest/google-cloud-sdk"
   [ -e "$GCLOUD_HOME/path.bash.inc" ] && . "$GCLOUD_HOME/path.bash.inc"
