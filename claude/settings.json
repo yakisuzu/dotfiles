@@ -1,4 +1,6 @@
 {
+  "autoUpdatesChannel": "stable",
+  "language": "japanese"
   "permissions": {
     "allow": [],
     "deny": []
@@ -19,4 +21,3 @@
     ]
   }
 }
-

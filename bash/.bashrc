@@ -71,6 +71,9 @@ function MACRC(){
   # ver固定をbrewよりも優先させる
   eval "$(anyenv init -)"
 
+  # coursier
+  export "PATH=$HOME/Library/Application Support/Coursier/bin:$PATH"
+
   # GNU
   export PATH="$BREW_PREFIX/opt/grep/libexec/gnubin:$PATH"
   export PATH="$BREW_PREFIX/opt/gnu-sed/libexec/gnubin:$PATH"
@@ -143,3 +146,6 @@ esac
 # sample
 # export PATH=$PATH:$SYSTEMDRIVE/opscode/chefdk/embedded/bin
 
+
+# Added by LocalStack installer
+source $HOME/.localstack/localstack_setup.sh

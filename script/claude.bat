@@ -8,6 +8,9 @@ rem ------------------------------
 
   rem mklink settings.json
   call :MKLINK .\claude\settings.json .claude\settings.json
+
+  rem mklink CLAUDE.md
+  call :MKLINK .\claude\CLAUDE.md .claude\CLAUDE.md
 exit /b
 
 rem ------------------------------
