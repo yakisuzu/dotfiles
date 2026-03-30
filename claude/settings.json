@@ -15,7 +15,18 @@
         "hooks": [
           {
             "type": "command",
-            "command": "~/.claude/hooks/session_register.sh"
+            "command": "~/.claude/hooks/init-session.sh"
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/cleanup-active-plan.sh"
           }
         ]
       }

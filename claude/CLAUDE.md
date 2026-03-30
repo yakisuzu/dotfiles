@@ -7,8 +7,10 @@
 
 ## Worktree Rule
 
-- **Before editing or creating any files**, always check for uncommitted changes by running `git diff --stat` and `git diff --cached --stat`.
-- If changes exist, invoke the `/wt` skill to propose a worktree switch and wait for the user's decision. Do NOT begin file modifications without the user's response.
+- **Before editing or creating any files**, check for uncommitted changes by running `git diff --stat` and `git diff --cached --stat`.
+- If changes exist, judge whether the uncommitted changes are **the same topic/purpose** as the task you are about to perform.
+  - **Same topic**: Proceed without proposing a worktree switch.
+  - **Different topic**: Invoke the `/wt` skill to propose a worktree switch and wait for the user's decision. Do NOT begin file modifications without the user's response.
 - If no changes exist, proceed with work normally.
 
 ## CLI Tools
