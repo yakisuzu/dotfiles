@@ -5,6 +5,12 @@
 - This machine runs GNU sed (installed via `brew install gnu-sed`) as the default `sed` in PATH, replacing macOS BSD sed.
 - When using `sed` in Bash commands, always use GNU sed syntax (e.g. `-i` without backup extension argument).
 
+## Worktree Rule
+
+- **Before editing or creating any files**, always check for uncommitted changes by running `git diff --stat` and `git diff --cached --stat`.
+- If changes exist, invoke the `/wt` skill to propose a worktree switch and wait for the user's decision. Do NOT begin file modifications without the user's response.
+- If no changes exist, proceed with work normally.
+
 ## CLI Tools
 
 - When using `gh` CLI (GitHub CLI), backticks in `--title` or `--body` arguments cause shell interpolation failures. Always pass the body via HEREDOC with a quoted delimiter to prevent interpolation:

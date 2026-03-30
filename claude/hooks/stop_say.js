@@ -40,14 +40,21 @@ process.stdin.on('end', () => {
     const expandedPath = transcriptPath.replace(/^~/, process.env.HOME);
     log(`Expanded path: ${expandedPath}`);
 
-    // JSONLファイルを読み込み
-    if (!fs.existsSync(expandedPath)) {
-      log(`ERROR: Transcript file not found: ${expandedPath}`);
-      console.error(`Transcript file not found: ${expandedPath}`);
-      process.exit(1);
+    // JSONLファイルを読み込み（worktree環境ではパスにフォールバック）
+    let actualPath = expandedPath;
+    if (!fs.existsSync(actualPath)) {
+      // worktreeパスから元のプロジェクトパスを導出して試行
+      const fallbackPath = actualPath.replace(/--claude-worktrees-[^/]+/, '');
+      log(`Worktree path not found, trying fallback: ${fallbackPath}`);
+      if (fallbackPath !== actualPath && fs.existsSync(fallbackPath)) {
+        actualPath = fallbackPath;
+      } else {
+        log(`Transcript file not found: ${expandedPath}`);
+        process.exit(0);
+      }
     }
 
-    const content = fs.readFileSync(expandedPath, 'utf-8');
+    const content = fs.readFileSync(actualPath, 'utf-8');
     log(`Read transcript file: ${content.length} bytes`);
     const lines = content.trim().split('\n').filter(line => line.length > 0);
     log(`Total lines: ${lines.length}`);
@@ -108,7 +115,7 @@ process.stdin.on('end', () => {
       if (cleanText.length > 0) {
         // 環境変数でvoicevoxを使うか判定
         const useVoicevox = process.env.CLAUDE_USE_VOICEVOX === 'true';
-        const command = useVoicevox ? path.join(__dirname, 'voicevox') : 'say';
+        const command = useVoicevox ? 'voicevox' : 'say';
 
         log(`Executing ${command} command with text: ${cleanText.substring(0, 50)}...`);
         const result = spawnSync(command, [cleanText], { stdio: 'inherit' });

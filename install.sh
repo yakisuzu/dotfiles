@@ -60,6 +60,7 @@ echo init claude
 mkdir -p "$HOME/.claude"
 LINK_OVERRIDE "$PWD/claude/settings.json" "$HOME/.claude/settings.json"
 LINK_OVERRIDE "$PWD/claude/CLAUDE.md" "$HOME/.claude/CLAUDE.md"
+LINK_OVERRIDE "$PWD/claude/hooks" "$HOME/.claude/hooks"
 
 unset LINK_OVERRIDE
 unset COPY_NOT_EXISTS

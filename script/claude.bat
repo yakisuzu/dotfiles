@@ -11,6 +11,10 @@ rem ------------------------------
 
   rem mklink CLAUDE.md
   call :MKLINK .\claude\CLAUDE.md .claude\CLAUDE.md
+
+  rem mklink hooks
+  if exist "%USERPROFILE%\.claude\hooks" ( rmdir "%USERPROFILE%\.claude\hooks" )
+  mklink /D "%USERPROFILE%\.claude\hooks" "%~dp0claude\hooks"
 exit /b
 
 rem ------------------------------

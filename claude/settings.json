@@ -1,23 +1,38 @@
 {
-  "autoUpdatesChannel": "stable",
-  "language": "japanese",
   "permissions": {
-    "allow": [],
+    "allow": [
+      "Bash(git diff --stat)",
+      "Bash(git diff --cached --stat)"
+    ],
     "deny": []
   },
   "enableAllProjectMcpServers": true,
   "enabledMcpjsonServers": [],
   "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/session_register.sh"
+          }
+        ]
+      }
+    ],
     "Stop": [
       {
         "matcher": "",
         "hooks": [
           {
             "type": "command",
-            "command": "claude_stop_say.js"
+            "command": "~/.claude/hooks/stop_say.js"
           }
         ]
       }
     ]
-  }
+  },
+  "language": "japanese",
+  "autoUpdatesChannel": "stable",
+  "skipAutoPermissionPrompt": true
 }

@@ -1,0 +1,51 @@
+#!/bin/bash
+#
+# claude-fork - tmux pane分割してセッションをfork
+#
+# !claude-fork        : 現在のセッションをfork（PIDから自動特定）
+# !claude-fork pick   : resumeピッカーでセッションを選んでfork
+# !claude-fork <uuid> : 指定セッションIDでfork
+#
+
+set -euo pipefail
+
+SESSION_DIR="/tmp/claude-sessions"
+
+# プロセスツリーを遡って親のclaude PIDを特定し、session_idを返す
+find_session_id() {
+  local pid=$$
+  while [[ "$pid" -gt 1 ]]; do
+    pid=$(ps -o ppid= -p "$pid" 2>/dev/null | tr -d ' ')
+    [[ -z "$pid" || "$pid" -le 1 ]] && break
+    local comm
+    comm=$(ps -o comm= -p "$pid" 2>/dev/null | tr -d ' ')
+    if [[ "$comm" == *claude* ]]; then
+      local session_file="$SESSION_DIR/$pid"
+      if [[ -f "$session_file" ]]; then
+        cat "$session_file"
+        return 0
+      fi
+    fi
+  done
+  return 1
+}
+
+MODE="${1:-auto}"
+
+case "$MODE" in
+  pick)
+    tmux split-window -h "unset CLAUDECODE; claude --resume --fork-session"
+    ;;
+  auto)
+    SESSION_ID=$(find_session_id || true)
+    if [[ -n "$SESSION_ID" ]]; then
+      tmux split-window -h "unset CLAUDECODE; claude --resume '$SESSION_ID' --fork-session"
+    else
+      # fallback: session_id不明時は--continueで最新セッション
+      tmux split-window -h "unset CLAUDECODE; claude --continue --fork-session"
+    fi
+    ;;
+  *)
+    tmux split-window -h "unset CLAUDECODE; claude --resume '$MODE' --fork-session"
+    ;;
+esac
