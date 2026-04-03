@@ -1,3 +1,5 @@
+@CLAUDE.local.md
+
 # Global Settings
 
 ## Environment

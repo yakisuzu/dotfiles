@@ -15,6 +15,9 @@ rem ------------------------------
   rem mklink hooks
   if exist "%USERPROFILE%\.claude\hooks" ( rmdir "%USERPROFILE%\.claude\hooks" )
   mklink /D "%USERPROFILE%\.claude\hooks" "%~dp0claude\hooks"
+
+  rem copy CLAUDE.local.md
+  call :COPY_NOT_EXISTS .\claude\CLAUDE.local.md .claude\CLAUDE.local.md
 exit /b
 
 rem ------------------------------
@@ -27,4 +30,16 @@ rem ------------------------------
 
   set f_link=
   set f_file=
+exit /b
+
+rem ------------------------------
+:COPY_NOT_EXISTS
+  set f_dest=%USERPROFILE%\%~2
+  set f_src=%~dpnx1
+
+  if exist "%f_dest%" ( exit /b )
+  copy "%f_src%" "%f_dest%"
+
+  set f_dest=
+  set f_src=
 exit /b
