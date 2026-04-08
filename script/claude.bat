@@ -16,6 +16,14 @@ rem ------------------------------
   if exist "%USERPROFILE%\.claude\hooks" ( rmdir "%USERPROFILE%\.claude\hooks" )
   mklink /D "%USERPROFILE%\.claude\hooks" "%~dp0claude\hooks"
 
+  rem mklink rules
+  if exist "%USERPROFILE%\.claude\rules" ( rmdir "%USERPROFILE%\.claude\rules" )
+  mklink /D "%USERPROFILE%\.claude\rules" "%~dp0claude\rules"
+
+  rem mklink skills
+  if exist "%USERPROFILE%\.claude\skills" ( rmdir "%USERPROFILE%\.claude\skills" )
+  mklink /D "%USERPROFILE%\.claude\skills" "%~dp0claude\skills"
+
   rem copy CLAUDE.local.md
   call :COPY_NOT_EXISTS .\claude\CLAUDE.local.md .claude\CLAUDE.local.md
 exit /b

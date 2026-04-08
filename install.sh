@@ -61,6 +61,8 @@ mkdir -p "$HOME/.claude"
 LINK_OVERRIDE "$PWD/claude/settings.json" "$HOME/.claude/settings.json"
 LINK_OVERRIDE "$PWD/claude/CLAUDE.md" "$HOME/.claude/CLAUDE.md"
 LINK_OVERRIDE "$PWD/claude/hooks" "$HOME/.claude/hooks"
+LINK_OVERRIDE "$PWD/claude/rules" "$HOME/.claude/rules"
+LINK_OVERRIDE "$PWD/claude/skills" "$HOME/.claude/skills"
 COPY_NOT_EXISTS "$PWD/claude/CLAUDE.local.md" "$HOME/.claude/CLAUDE.local.md"
 
 unset LINK_OVERRIDE

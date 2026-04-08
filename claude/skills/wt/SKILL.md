@@ -1,3 +1,10 @@
+---
+name: wt
+description: Check for uncommitted git changes and propose switching to a worktree. Use when starting new work on a branch with existing changes, or when the Worktree Rule in CLAUDE.md triggers.
+argument-hint:
+allowed-tools: Bash EnterWorktree
+---
+
 # Worktree Proposal Skill
 
 Check the working directory for uncommitted git changes (unstaged and staged) and propose switching to a worktree to protect existing work.
