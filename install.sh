@@ -6,9 +6,13 @@ function LINK_OVERRIDE(){
   SRC_PATH="$1"
   DEST_PATH="$2"
 
-  [ -L "$DEST_PATH" ] \
-    && rm "$DEST_PATH" \
-    && echo "rm $DEST_PATH"
+  if [ -L "$DEST_PATH" ]; then
+    rm "$DEST_PATH"
+    echo "rm $DEST_PATH"
+  elif [ -d "$DEST_PATH" ]; then
+    rm -rf "$DEST_PATH"
+    echo "rm -rf $DEST_PATH"
+  fi
 
   echo "make $DEST_PATH"
   ln -s "$SRC_PATH" "$DEST_PATH"

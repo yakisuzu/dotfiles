@@ -44,6 +44,7 @@
     ]
   },
   "language": "japanese",
+  "effortLevel": "high",
   "autoUpdatesChannel": "stable",
   "skipAutoPermissionPrompt": true
 }

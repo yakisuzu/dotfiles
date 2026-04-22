@@ -1,13 +1,18 @@
 ---
 name: wt
 description: Check for uncommitted git changes and propose switching to a worktree. Use when starting new work on a branch with existing changes, or when the Worktree Rule in CLAUDE.md triggers.
-argument-hint:
+argument-hint: "[base branch: <branch>] [name: <worktree-name>]"
 allowed-tools: Bash EnterWorktree
 ---
 
 # Worktree Proposal Skill
 
 Check the working directory for uncommitted git changes (unstaged and staged) and propose switching to a worktree to protect existing work.
+
+## Arguments
+
+- `base branch: <branch>` — (optional) Base branch for the worktree (e.g. `qa`, `master`). If specified, the worktree will be reset to `origin/<branch>` after creation.
+- `name: <worktree-name>` — (optional) Name for the worktree. Passed to EnterWorktree.
 
 ## Steps
 
@@ -23,8 +28,13 @@ Check the working directory for uncommitted git changes (unstaged and staged) an
    - **wt**: Switch to a worktree to isolate new work (protects existing uncommitted changes)
    - **continue**: Proceed on the current branch as-is (risk of overwriting uncommitted changes)
 
-4. If the user chooses **wt**:
-   - Use the `EnterWorktree` tool to switch to a worktree
+4. If the user chooses **wt** (or was explicitly asked to create a worktree):
+   - Use the `EnterWorktree` tool to switch to a worktree (pass `name` if provided)
+   - **If `base branch` was specified**, run the following to rebase onto the target branch:
+     ```bash
+     git fetch origin <branch> && git reset --hard origin/<branch> && git branch -u origin/<branch>
+     ```
+   - Verify the result with `git log origin/<branch>..HEAD --oneline` (should be empty)
    - Report the transition and resume the original task
 
 5. If the user chooses **continue**:
