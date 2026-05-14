@@ -1,6 +1,6 @@
 ---
 name: organize-config
-description: Analyze current repo's CLAUDE.md, rules, and skills placement. Propose reorganization based on best practices.
+description: Analyze current repo's CLAUDE.md, rules, skills, hooks, and scripts placement. Propose reorganization based on best practices.
 user-invocable: true
 disable-model-invocation: true
 allowed-tools: Read, Glob, Grep, Bash, Write, Edit, Agent
@@ -9,7 +9,7 @@ argument-hint: "[audit|migrate|init]"
 
 # Organize Config Skill
 
-Analyze Claude Code configuration (CLAUDE.md / rules / skills) and propose reorganization based on best practices.
+Analyze Claude Code configuration (CLAUDE.md / rules / skills / hooks / scripts) and propose reorganization based on best practices.
 
 ## Usage
 
@@ -27,8 +27,10 @@ Collect the following:
 
 1. **CLAUDE.md** -- Read from project root and `.claude/CLAUDE.md`, count lines
 2. **Rules** -- Read all files under `.claude/rules/`. Check `paths` / `alwaysApply` in frontmatter
-3. **Skills** -- Read all files under `.claude/skills/`. Check frontmatter
-4. **Parent directory** -- If a parent CLAUDE.md exists, check its contents (monorepo support)
+3. **Skills** -- Read all files under `.claude/skills/`. Check frontmatter and supporting files (scripts/, templates, etc.)
+4. **Hooks** -- Read `hooks` section in settings.json (both `~/.claude/settings.json` and `.claude/settings.json`). List hook scripts referenced by `command` fields
+5. **Hook scripts** -- Read all files under `.claude/hooks/` and `~/.claude/hooks/`. Check language, permissions, and placement
+6. **Parent directory** -- If a parent CLAUDE.md exists, check its contents (monorepo support)
 
 ### Step 2: Analyze based on placement rules
 
@@ -39,6 +41,9 @@ Evaluate each entry against these placement principles:
 | **CLAUDE.md** | Build commands, code conventions, environment quirks, shared team knowledge. **Under 200 lines** | High (full text loaded every time) |
 | **rules/** | Conditional reminders, path-specific rules. Lazy-loaded via `paths` | Medium (conditional) |
 | **skills/** | Domain expertise, reusable workflows, on-demand references | Low (loaded only on invocation. Only 250-char description loaded always) |
+| **hooks (settings.json)** | Hook definitions: event, matcher, command reference. Inline commands for simple one-liners | N/A (not loaded into context) |
+| **hooks/** | Hook scripts referenced from settings.json. Standalone executables (.sh, .js) | N/A (executed on events) |
+| **skills/\*/scripts/** | Supporting scripts for a specific skill. Referenced from SKILL.md | N/A (executed on demand) |
 
 #### Specific criteria
 
@@ -55,6 +60,27 @@ Items to **create as** Skills:
 - Repeatedly used workflows (PR creation, deploy procedures, etc.)
 - Deep domain knowledge (API specs, DB design, etc.)
 
+#### Hooks and scripts criteria
+
+Placement rules for hook scripts:
+- Project-level hook scripts -> `.claude/hooks/`
+- Personal (cross-project) hook scripts -> `~/.claude/hooks/`
+- Skill-specific scripts -> `<skill>/scripts/`
+- Simple one-liner hooks can stay inline in settings.json `command` field
+- Multi-line or complex logic MUST be extracted to a script file
+
+Script language preference (in order):
+1. **Shell (sh/bash)** -- Preferred for simple file checks, git operations, text processing
+2. **Node.js (js)** -- Preferred for JSON parsing, complex logic, cross-platform needs
+3. **Python** -- Avoid unless the project already depends on Python
+
+Items to **flag** in hooks:
+- Scripts placed outside `.claude/hooks/` or `<skill>/scripts/` -> Propose moving to recommended location
+- Python scripts when sh/js would suffice -> Propose rewriting in sh or Node.js
+- Inline commands in settings.json that are complex (pipes, conditionals) -> Propose extracting to a script file
+- Missing executable permission on script files
+- Hardcoded absolute paths instead of `$CLAUDE_PROJECT_DIR` or `${CLAUDE_SKILL_DIR}`
+
 ### Step 3: Output
 
 #### `audit` mode
@@ -68,11 +94,16 @@ Output a report in the following format:
 - CLAUDE.md: {line_count} lines {WARNING if over 200 lines}
 - Rules: {file_count} files (alwaysApply: {count}, path-scoped: {count})
 - Skills: {file_count} files
+- Hooks: {hook_count} event types configured, {script_count} external scripts
+- Scripts: {languages_used} (sh: {count}, js: {count}, py: {count})
 
 ### Improvement Proposals
 1. [Move] CLAUDE.md L{start}-L{end} "{summary}" -> rules/{proposed-name}.md (Reason: only relevant to {paths})
 2. [Split] rules/{name}.md template section -> skills/{proposed-name}/SKILL.md
 3. [Merge] rules/{name}.md -> Merge into CLAUDE.md (short, always needed)
+4. [Extract] hooks/{event} inline command -> .claude/hooks/{proposed-name}.sh (Reason: complex inline command)
+5. [Move] {script_path} -> .claude/hooks/{name} (Reason: script outside recommended location)
+6. [Rewrite] {script_path} from Python to sh/Node.js (Reason: prefer sh/js over Python)
 ...
 
 ### References
@@ -93,6 +124,7 @@ Generate minimal configuration for the current repository:
 1. Create `CLAUDE.md` template if it does not exist
 2. Create `.claude/rules/` directory
 3. Create `.claude/skills/` directory
+4. Create `.claude/hooks/` directory
 
 Template content is adjusted by auto-detecting the repository's language and framework.
 

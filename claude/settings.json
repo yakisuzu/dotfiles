@@ -4,7 +4,8 @@
       "Bash(git diff --stat)",
       "Bash(git diff --cached --stat)"
     ],
-    "deny": []
+    "deny": [],
+    "defaultMode": "auto"
   },
   "enableAllProjectMcpServers": true,
   "enabledMcpjsonServers": [],
@@ -46,5 +47,6 @@
   "language": "japanese",
   "effortLevel": "high",
   "autoUpdatesChannel": "stable",
+  "remoteControlAtStartup": true,
   "skipAutoPermissionPrompt": true
 }
