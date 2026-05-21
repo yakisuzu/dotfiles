@@ -10,12 +10,12 @@
 ## Worktree Rule
 
 - **Before editing or creating any files**, check the current branch and uncommitted changes by running `git branch --show-current`, `git diff --stat`, and `git diff --cached --stat`.
-- **If the current branch is NOT main/master**: The branch may have in-progress work. Invoke the `/wt` skill to propose a worktree switch (regardless of whether diffs exist) and wait for the user's decision. Do NOT begin file modifications without the user's response.
+- **If the current branch is NOT main/master**:
+  - **Uncommitted changes exist**: Invoke `/wt` to propose a worktree switch and wait for the user's decision. Do NOT begin file modifications without the user's response.
+  - **No uncommitted changes**: Invoke `/wt` to confirm whether the previous work is done (→ return to main/master) or still in progress (→ worktree for the new task). Do NOT begin file modifications without the user's response.
 - **If the current branch IS main/master**:
-  - If uncommitted changes exist, judge whether they are **the same topic/purpose** as the task you are about to perform.
-    - **Same topic**: Proceed without proposing a worktree switch.
-    - **Different topic**: Invoke the `/wt` skill to propose a worktree switch and wait for the user's decision. Do NOT begin file modifications without the user's response.
-  - If no changes exist, proceed with work normally.
+  - **Uncommitted changes exist**: Invoke `/wt` to propose a worktree switch and wait for the user's decision. Do NOT begin file modifications without the user's response.
+  - **No uncommitted changes**: Proceed with work normally.
 - **Basic workflow**: Start work from main/master — `git checkout main && git pull` (or `master`) before beginning a new task.
 
 ## CLI Tools

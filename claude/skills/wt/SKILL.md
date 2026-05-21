@@ -7,7 +7,7 @@ allowed-tools: Bash EnterWorktree
 
 # Worktree Proposal Skill
 
-Check the working directory for uncommitted git changes (unstaged and staged) and propose switching to a worktree to protect existing work.
+Check the current branch and uncommitted changes, then propose the appropriate action based on the situation.
 
 ## Arguments
 
@@ -16,19 +16,36 @@ Check the working directory for uncommitted git changes (unstaged and staged) an
 
 ## Steps
 
-1. Run the following commands to detect changes:
+1. Run the following commands to detect branch and changes:
    ```
+   git branch --show-current
    git diff --stat
    git diff --cached --stat
    ```
 
-2. **If no changes are found**: Report "No uncommitted changes detected. Proceeding with work." and exit.
+2. Determine the situation and act accordingly:
 
-3. **If changes are found**: Display a summary of the changes and present the user with the following options:
-   - **wt**: Switch to a worktree to isolate new work (protects existing uncommitted changes)
-   - **continue**: Proceed on the current branch as-is (risk of overwriting uncommitted changes)
+### Case A: main/master + no changes
+Report "No uncommitted changes on main. Proceeding with work." and exit.
 
-4. If the user chooses **wt** (or was explicitly asked to create a worktree):
+### Case B: main/master + changes exist
+Display a summary of the changes and present the user with options:
+- **wt**: Switch to a worktree to isolate new work (protects existing uncommitted changes)
+- **continue**: Proceed on the current branch as-is
+
+### Case C: Feature branch + changes exist
+Display a summary of the changes and present the user with options:
+- **wt**: Switch to a worktree to isolate new work (protects existing uncommitted changes on the feature branch)
+- **continue**: Proceed on the current feature branch as-is
+
+### Case D: Feature branch + no changes
+Report the current branch name and ask the user whether the previous work on this branch is finished:
+- **done**: The previous work is finished → return to main/master and pull
+- **wt**: The previous work is NOT finished → switch to a worktree (based on main/master) to start the new task
+
+3. Execute the chosen action:
+
+**If wt** (Case B or C):
    - Use the `EnterWorktree` tool to switch to a worktree (pass `name` if provided)
    - **If `base branch` was specified**, run the following to rebase onto the target branch:
      ```bash
@@ -37,5 +54,19 @@ Check the working directory for uncommitted git changes (unstaged and staged) an
    - Verify the result with `git log origin/<branch>..HEAD --oneline` (should be empty)
    - Report the transition and resume the original task
 
-5. If the user chooses **continue**:
+**If done** (Case D):
+   - Detect the default branch name (`main` or `master`)
+   - Run `git checkout <default-branch> && git pull`
+   - Report the transition and resume the original task
+
+**If wt** (Case D):
+   - Use the `EnterWorktree` tool to switch to a worktree (pass `name` if provided)
+   - Reset to main/master:
+     ```bash
+     git fetch origin <default-branch> && git reset --hard origin/<default-branch> && git branch -u origin/<default-branch>
+     ```
+   - Verify the result with `git log origin/<default-branch>..HEAD --oneline` (should be empty)
+   - Report the transition and resume the original task
+
+**If continue**:
    - Proceed with work on the current branch without switching
