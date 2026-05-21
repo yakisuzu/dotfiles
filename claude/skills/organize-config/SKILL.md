@@ -132,6 +132,7 @@ Template content is adjusted by auto-detecting the repository's language and fra
 
 - All configuration files (CLAUDE.md, rules, skills) MUST be written in English
 - Do NOT use emojis in any configuration files
+- **How-to only**: Skills MUST contain only procedures and decision criteria. NEVER write investigation results, current state summaries, or repo-specific data that must stay in sync with code. Such data drifts from the source of truth and silently degrades skill quality. Always gather repo state dynamically at runtime. Universal guidelines and thresholds (e.g. official doc metrics) ARE permitted as decision criteria (how to judge).
 
 ## Best Practice Reference
 
