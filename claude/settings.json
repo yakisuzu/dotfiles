@@ -48,5 +48,6 @@
   "effortLevel": "high",
   "autoUpdatesChannel": "stable",
   "remoteControlAtStartup": true,
-  "skipAutoPermissionPrompt": true
+  "skipAutoPermissionPrompt": true,
+  "agentPushNotifEnabled": true
 }
