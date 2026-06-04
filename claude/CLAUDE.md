@@ -7,6 +7,12 @@
 - This machine runs GNU sed (installed via `brew install gnu-sed`) as the default `sed` in PATH, replacing macOS BSD sed.
 - When using `sed` in Bash commands, always use GNU sed syntax (e.g. `-i` without backup extension argument).
 
+## Behavior
+
+- **Improvements**: 運用や設計の改善は skills / CLAUDE.md / rules に反映する。memory には個人/一時情報のみ残す
+- **Survey scope**: 「全体調査」と銘打って実施する場合、発見した対象をすべて一次レポートに出す。除外判断はユーザーに委ねる
+- **Counter-proposals**: ユーザー提案でも技術的に弱ければ yes-man にならず理由付きで代替案を提示する。選択肢化して trade-off を示し、最終判断はユーザーに委ねる
+
 ## Worktree Rule
 
 - **Before editing or creating any files**, check the current branch and uncommitted changes by running `git branch --show-current`, `git diff --stat`, and `git diff --cached --stat`.
