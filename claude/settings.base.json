@@ -38,7 +38,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "~/.claude/hooks/stop_say.js"
+            "command": "~/.claude/hooks/stop_say.js",
+            "async": true
           }
         ]
       }

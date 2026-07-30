@@ -73,12 +73,13 @@ Collect the following:
 
 1. **CLAUDE.md** -- Read from project root and `.claude/CLAUDE.md`, count lines
 2. **Rules** -- Read all files under `.claude/rules/`. Check `paths` / `alwaysApply` in frontmatter
-3. **Skills** -- Read all files under `.claude/skills/` AND `~/.claude/skills/`. For each: parse YAML frontmatter (`name`, `description`, `allowed-tools`, etc.), count SKILL.md body lines, list supporting files (`scripts/`, `reference/`, templates). Note skills present in BOTH layers (potential collision)
-4. **Plugin / marketplace registration** -- Read `.claude/settings.json` and `~/.claude/settings.json`. Inspect `extraKnownMarketplaces` and `enabledPlugins`. List which marketplaces / plugins are already wired up
-5. **Cross-repo duplication (team mode only)** -- If the user can supply sibling repo paths or a list of project roots, scan each for `.claude/skills/<same-name>/SKILL.md`. Without that input, ASK: "List sibling repos to scan for duplicated skills, or skip." Skills with identical names across 2+ repos are duplication candidates
-6. **Hooks** -- Read `hooks` section in settings.json (both `~/.claude/settings.json` and `.claude/settings.json`). List hook scripts referenced by `command` fields
-7. **Hook scripts** -- Read all files under `.claude/hooks/` and `~/.claude/hooks/`. Check language, permissions, and placement
-8. **Parent directory** -- If a parent CLAUDE.md exists, check its contents (monorepo support)
+3. **Skills** -- Read all files under `.claude/skills/` AND `~/.claude/skills/`. For each: parse YAML frontmatter (`name`, `description`, `when_to_use`, `allowed-tools`, `disable-model-invocation`, `context`, etc.), count SKILL.md body lines, list supporting files (`scripts/`, `reference/`, templates). Note skills present in BOTH layers (potential collision). Flag skill directories with NO SKILL.md (dead placeholder)
+4. **Legacy commands** -- List `.claude/commands/*.md` and `~/.claude/commands/*.md`. Custom commands have been merged into skills; these files still work but are migration candidates
+5. **Plugin / marketplace registration** -- Read `.claude/settings.json` and `~/.claude/settings.json`. Inspect `extraKnownMarketplaces` and `enabledPlugins`. List which marketplaces / plugins are already wired up
+6. **Cross-repo duplication (team mode only)** -- If the user can supply sibling repo paths or a list of project roots, scan each for `.claude/skills/<same-name>/SKILL.md`. Without that input, ASK: "List sibling repos to scan for duplicated skills, or skip." Skills with identical names across 2+ repos are duplication candidates
+7. **Hooks** -- Read `hooks` section in settings.json (both `~/.claude/settings.json` and `.claude/settings.json`), plus `hooks` frontmatter in skills/agents. List hook scripts referenced by `command` fields, and note hook `type` (`command` / `http` / `mcp_tool` / `prompt` / `agent`)
+8. **Hook scripts** -- Read all files under `.claude/hooks/` and `~/.claude/hooks/`. Check language, permissions, and placement
+9. **Parent directory** -- If a parent CLAUDE.md exists, check its contents (monorepo support)
 
 ### Step 2: Analyze based on placement rules
 
@@ -88,7 +89,7 @@ Evaluate each entry against these placement principles:
 |----------|-----------------|--------------|
 | **CLAUDE.md** | Build commands, code conventions, environment quirks, shared team knowledge. **Under 200 lines** | High (full text loaded every time) |
 | **rules/** | Conditional reminders, path-specific rules. Lazy-loaded via `paths` | Medium (conditional) |
-| **skills/** | Domain expertise, reusable workflows, on-demand references | Low (loaded only on invocation. Only 250-char description loaded always) |
+| **skills/** | Domain expertise, reusable workflows, on-demand references | Low (loaded only on invocation. Only `name` + `description`/`when_to_use` always loaded, truncated at 1,536 chars) |
 | **hooks (settings.json)** | Hook definitions: event, matcher, command reference. Inline commands for simple one-liners | N/A (not loaded into context) |
 | **hooks/** | Hook scripts referenced from settings.json. Standalone executables (.sh, .js) | N/A (executed on events) |
 | **skills/\*/scripts/** | Supporting scripts for a specific skill. Referenced from SKILL.md | N/A (executed on demand) |
@@ -110,31 +111,19 @@ Items to **create as** Skills:
 
 #### Skill quality criteria
 
-Evaluate each `SKILL.md` against the official authoring rules:
+Spec compliance is DELEGATED to the live official docs -- this file does not restate them. At audit time, fetch the current rules and evaluate each SKILL.md against them:
 
-**Frontmatter `name` field:**
-- MUST match `^[a-z0-9-]+$` (lowercase, digits, hyphens only)
-- MUST be 64 chars or fewer
-- MUST NOT contain reserved words (`anthropic`, `claude`)
-- SHOULD use gerund form (verb + -ing): `processing-pdfs`, `analyzing-spreadsheets`, `testing-code`
-  - Acceptable alternatives: noun phrase (`pdf-processing`), action-oriented (`process-pdfs`)
-- MUST NOT be vague: `helper`, `utils`, `tools`, `docs`, `data`, `files`
-- MUST match the containing directory name
+- Frontmatter reference (all fields, limits, invocation control, substitutions): https://code.claude.com/docs/en/skills.md
+- Authoring best practices (naming, description style, body length, progressive disclosure): https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices
 
-**Frontmatter `description` field:**
-- MUST be non-empty, 1024 chars or fewer
-- MUST be written in third person ("Extracts ...", not "I can ..." / "You can ...")
-- MUST include BOTH what the skill does AND when to use it
-- First 250 chars are the primary discovery signal -- front-load triggers/keywords
+Check at minimum, per the CURRENT spec found there: directory/`name` validity, `description` / `when_to_use` style and truncation limits, body length and reference-file structure, and whether invocation-control fields (`disable-model-invocation`, `user-invocable`, `context: fork`, `allowed-tools`, `model` / `effort`, `paths`) are used where the docs recommend them.
 
-**SKILL.md body:**
-- SHOULD be under 500 lines. Over 500 -> propose splitting into reference files (`reference/*.md`)
-- File references SHOULD be one level deep from SKILL.md (no nested `see A -> see B -> see C`)
-- Reference files over 100 lines SHOULD include a table of contents at the top
-
-**Cross-skill consistency within the repo:**
-- Naming pattern SHOULD be uniform (don't mix `processing-pdfs` and `pdf-tool` and `do_excel`)
-- Terminology SHOULD be consistent across skills (one term per concept)
+**Additional viewpoints (not covered by the official docs):**
+- Bundled-skill overlap: enumerate Claude Code's bundled skills (commands reference, or `/help`). A custom skill duplicating a bundled one (e.g. `/run`, `/verify`, `/code-review`, `/update-config`, `/run-skill-generator`) SHOULD shrink to a thin wrapper: delegate to the bundled skill and keep only repo/team-specific additions (extra checks, defaults, policies)
+- Cross-skill consistency within the repo: uniform naming pattern (don't mix `processing-pdfs` and `pdf-tool` and `do_excel`), one term per concept across skills
+- Hardcoded paths: skill bodies MUST use `${CLAUDE_SKILL_DIR}` / `${CLAUDE_PROJECT_DIR}`, never `~/.claude/skills/<name>/...` -- hardcoded paths break for plugin installs and other users
+- `allowed-tools` scoping: scoped rules (`Bash(git *)`, `Bash(${CLAUDE_SKILL_DIR}/scripts/run.sh *)`), not bare tool names like `Bash`
+- `model` / `effort` values: aliases (`sonnet`, `opus`, `haiku`, `fable`) or `inherit`; NEVER pin dated model IDs -- they go stale
 
 #### Skill distribution criteria
 
@@ -189,8 +178,15 @@ Placement rules for hook scripts:
 - Project-level hook scripts -> `.claude/hooks/`
 - Personal (cross-project) hook scripts -> `~/.claude/hooks/`
 - Skill-specific scripts -> `<skill>/scripts/`
+- Hooks that only matter while a specific skill/agent is active -> `hooks` frontmatter in that skill/agent (scoped lifecycle), not global settings.json
 - Simple one-liner hooks can stay inline in settings.json `command` field
 - Multi-line or complex logic MUST be extracted to a script file
+
+Hook definition quality (settings.json / frontmatter):
+- Hook `type` is not limited to `command`: `prompt` / `agent` (LLM-evaluated checks), `http` (endpoints), `mcp_tool` are available. A `command` script that re-implements fuzzy judgment logic is a candidate for `type: prompt`
+- Use the `if` field (permission-rule syntax, e.g. `"if": "Bash(git push *)"`) to gate tool-event hooks instead of grepping tool input inside the script
+- Slow side-effect hooks (TTS, notifications, network calls) on `Stop` / `PostToolUse` SHOULD set `async: true` so they don't block the session
+- Long-running hooks SHOULD set an explicit `timeout`; user-facing ones benefit from `statusMessage`
 
 Script language preference (in order):
 1. **Shell (sh/bash)** -- Preferred for simple file checks, git operations, text processing
@@ -203,6 +199,8 @@ Items to **flag** in hooks:
 - Inline commands in settings.json that are complex (pipes, conditionals) -> Propose extracting to a script file
 - Missing executable permission on script files
 - Hardcoded absolute paths instead of `$CLAUDE_PROJECT_DIR` or `${CLAUDE_SKILL_DIR}`
+- Blocking `Stop`/`PostToolUse` hooks doing slow side effects -> Propose `async: true`
+- Unbounded debug log files appended by hook scripts -> Propose rotation/truncation or removal after stabilization
 
 ### Step 3: Output
 
@@ -235,11 +233,18 @@ Output a report in the following format:
 8. [Rewrite description] skills/{name} -- current is first-person / lacks "when to use" / exceeds 1024 chars
 9. [Split skill] skills/{name}/SKILL.md ({n} lines) -> split into SKILL.md + reference/*.md (Reason: over 500 lines)
 10. [Resolve collision] skills/{name} exists in both `~/.claude/skills/` and `.claude/skills/` (Reason: precedence will mask one)
+11. [Migrate command] .claude/commands/{name}.md -> skills/{name}/SKILL.md (Reason: custom commands merged into skills; gains supporting files + invocation control)
+12. [Scope tools] skills/{name} `allowed-tools: Bash` -> `Bash(git *)` etc. (Reason: bare tool name grants everything for the turn)
+13. [Fix path] skills/{name} body references `~/.claude/skills/{name}/...` -> `${CLAUDE_SKILL_DIR}/...` (Reason: hardcoded install path)
+14. [Invocation control] skills/{name} -> add `disable-model-invocation: true` / `user-invocable: false` (Reason: side-effect workflow / background knowledge)
+15. [Async hook] hooks/{event} {script} -> add `async: true` (Reason: slow side effect blocks the session)
+16. [Remove or complete] skills/{name}/ has no SKILL.md (Reason: dead placeholder directory)
+17. [Thin-wrap] skills/{name} duplicates bundled /{bundled-skill} -> delegate to the bundled skill, keep only {repo/team-specific additions} (Reason: bundled skill covers the base workflow; local copy drifts)
 
 **Team mode proposals (skip in personal mode):**
 
-11. [Promote to plugin] skills/{name} -> {org}/claude-plugins/plugins/{shared|team-name}/skills/{name} (Reason: duplicated across {repo-A, repo-B} / used by multiple team members. Grouping: {shared if 2+ teams use it, else team plugin})
-12. [Wire marketplace] Add to `.claude/settings.json`:
+18. [Promote to plugin] skills/{name} -> {org}/claude-plugins/plugins/{shared|team-name}/skills/{name} (Reason: duplicated across {repo-A, repo-B} / used by multiple team members. Grouping: {shared if 2+ teams use it, else team plugin})
+19. [Wire marketplace] Add to `.claude/settings.json`:
     ```json
     {
       "extraKnownMarketplaces": {
@@ -252,9 +257,9 @@ Output a report in the following format:
     }
     ```
     (Reason: catalog registration + selective enable for this repo's team)
-13. [Move hooks to plugin] {repo}/hooks/{name} -> {plugin}/hooks/hooks.json (Reason: same hook duplicated across team repos)
-14. [Complete enablement] `extraKnownMarketplaces` is set but `enabledPlugins` is empty/missing -> Add `shared@{marketplace}` + `{team}@{marketplace}` to `enabledPlugins` so plugins actually load (Reason: catalog visible but nothing invokable)
-15. [Move cross-team to user scope] `enabledPlugins` lists `{other-team}@{marketplace}` in project `.claude/settings.json` -> Move to user scope `~/.claude/settings.json` (Reason: only one individual crosses teams; project scope forces it on every team mate)
+20. [Move hooks to plugin] {repo}/hooks/{name} -> {plugin}/hooks/hooks.json (Reason: same hook duplicated across team repos)
+21. [Complete enablement] `extraKnownMarketplaces` is set but `enabledPlugins` is empty/missing -> Add `shared@{marketplace}` + `{team}@{marketplace}` to `enabledPlugins` so plugins actually load (Reason: catalog visible but nothing invokable)
+22. [Move cross-team to user scope] `enabledPlugins` lists `{other-team}@{marketplace}` in project `.claude/settings.json` -> Move to user scope `~/.claude/settings.json` (Reason: only one individual crosses teams; project scope forces it on every team mate)
 ...
 
 ### References
@@ -268,6 +273,7 @@ Output a report in the following format:
 
 Based on `audit` results, execute file moves/splits with user confirmation.
 Explain each change before executing and wait for approval.
+For settings.json edits (permissions, hooks wiring, env), prefer delegating to the bundled `/update-config` skill instead of hand-editing.
 
 #### `init` mode
 
@@ -299,17 +305,20 @@ When updating configuration, check the latest best practices in these official d
 
 - Skills: https://code.claude.com/docs/en/skills.md
 - Skill authoring best practices: https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices
+- Bundled skills / commands reference (for thin-wrapper judgment): https://code.claude.com/docs/en/commands.md
 - Plugins (create): https://code.claude.com/docs/en/plugins
 - Plugin marketplaces (distribute): https://code.claude.com/docs/en/plugin-marketplaces
 - Discover/install plugins (3-layer enablement model): https://code.claude.com/docs/en/discover-plugins
 - Plugins reference (schemas, defaultEnabled, precedence): https://code.claude.com/docs/en/plugins-reference
 - Best Practices: https://code.claude.com/docs/en/best-practices.md
 - Memory & CLAUDE.md: https://code.claude.com/docs/en/memory.md
-- Hooks: https://code.claude.com/docs/en/hooks-guide.md
+- Hooks guide: https://code.claude.com/docs/en/hooks-guide.md
+- Hooks reference (events, types, JSON contract): https://code.claude.com/docs/en/hooks.md
 
 **Key metrics (subject to change, verify at the URLs above):**
 - CLAUDE.md: Under 200 lines recommended
 - SKILL.md body: Under 500 lines recommended
 - Skill `name`: lowercase + digits + hyphens, max 64 chars, no `anthropic`/`claude`
-- Skill `description`: max 1024 chars, third-person, first 250 chars front-load triggers
+- Skill `description`: max 1024 chars, third-person. Combined `description` + `when_to_use` truncated at 1,536 chars in the skill listing -- front-load triggers
+- Skill `model`: aliases (`sonnet` / `opus` / `haiku` / `fable`) or `inherit`; do not pin dated model IDs
 - MEMORY.md: First 200 lines or 25KB loaded

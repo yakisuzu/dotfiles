@@ -2,7 +2,7 @@
 name: wt
 description: Check for uncommitted git changes and propose switching to a worktree. Use when starting new work on a branch with existing changes, or when the Worktree Rule in CLAUDE.md triggers.
 argument-hint: "[base branch: <branch>] [name: <worktree-name>]"
-allowed-tools: Bash EnterWorktree
+allowed-tools: Bash(git *) EnterWorktree
 ---
 
 # Worktree Proposal Skill

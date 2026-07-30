@@ -5,8 +5,16 @@ const { spawnSync } = require('child_process');
 const os = require('os');
 const path = require('path');
 
-// デバッグログファイル
+// デバッグログファイル (1MB 超えたらローテーション)
 const logFile = path.join(os.homedir(), 'claude_hook_debug.log');
+const MAX_LOG_SIZE = 1024 * 1024;
+try {
+  if (fs.existsSync(logFile) && fs.statSync(logFile).size > MAX_LOG_SIZE) {
+    fs.renameSync(logFile, `${logFile}.old`);
+  }
+} catch (e) {
+  // ローテーション失敗は無視して追記を続ける
+}
 const log = (msg) => {
   const timestamp = new Date().toISOString();
   fs.appendFileSync(logFile, `[${timestamp}] ${msg}\n`);

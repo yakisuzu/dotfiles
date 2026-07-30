@@ -24,7 +24,8 @@ fi
 find "$SESSION_DIR" -type f -mmin +1440 -delete 2>/dev/null || true
 
 # --- worktree cleanup (残骸検出・削除) ---
-if [ "$TRIGGER" != "compact" ]; then
+# compact: セッション継続中のため対象外 / fork: 並行セッションの worktree を消すリスクがあるため対象外
+if [ "$TRIGGER" != "compact" ] && [ "$TRIGGER" != "fork" ]; then
   # 1. 参照切れ(ディレクトリ消失)の worktree エントリを掃除
   git worktree prune 2>/dev/null || true
 

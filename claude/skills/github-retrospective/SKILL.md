@@ -1,6 +1,7 @@
 ---
 name: github-retrospective
 description: 任意の期間の GitHub 実績 (自分が作成した PR) を集計して振り返り用 markdown レポートを生成する。「振り返り」「GitHub の実績を集計」「今月/先月/四半期の PR まとめ」「retrospective」などの依頼で使用。org / repo は実行時に指定する汎用 skill。
+allowed-tools: Bash(${CLAUDE_SKILL_DIR}/scripts/fetch_activity.sh *) Bash(gh search *) Bash(jq *)
 ---
 
 # GitHub Retrospective
@@ -28,7 +29,7 @@ PR タイトルの羅列部分はそのままでよい。
 同梱スクリプトを実行する:
 
 ```bash
-bash ~/.claude/skills/github-retrospective/scripts/fetch_activity.sh \
+${CLAUDE_SKILL_DIR}/scripts/fetch_activity.sh \
   YYYY-MM-DD YYYY-MM-DD --owner <org> > /tmp/gh-retro.json
 jq '{merged: (.merged_prs | length), open: (.open_prs | length)}' /tmp/gh-retro.json
 ```
