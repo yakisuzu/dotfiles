@@ -62,10 +62,10 @@ function MACRC(){
     fi
   fi
 
-  # asdf
-  [[ -r "$BREW_PREFIX/opt/asdf/libexec/asdf.sh" ]] && . "$BREW_PREFIX/opt/asdf/libexec/asdf.sh"
+  # asdf (Go版 0.16+: asdf.sh は廃止されたため shims を直接 PATH に追加)
+  export PATH="${ASDF_DATA_DIR:-$HOME/.asdf}/shims:$PATH"
   if [[ "$IS_INTERACTIVE" == "true" ]]; then
-    [[ -r "$BREW_PREFIX/etc/bash_completion.d/asdf.bash" ]] && . "$BREW_PREFIX/etc/bash_completion.d/asdf.bash"
+    . <(asdf completion bash)
   fi
 
   # ver固定をbrewよりも優先させる

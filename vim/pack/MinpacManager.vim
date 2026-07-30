@@ -30,7 +30,6 @@ function! g:MinpacManager(vim_home) abort
   function! s:mm.init_plugins() abort
     let op = {'type': 'opt'}
     " for utility
-    call minpac#add('vim-jp/vital.vim', op)
     call minpac#add('tyru/open-browser.vim', op)
     "call minpac#add('yakisuzu/previm', op)
 

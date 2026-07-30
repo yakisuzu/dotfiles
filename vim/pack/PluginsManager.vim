@@ -2,12 +2,11 @@ scriptencoding utf-8
 
 let s:hooks = {}
 "---------------------------------------------------------------------------
-function! s:hooks.vital() abort
-  let v_file = vital#vital#import('System.File')
-
-  command! -nargs=1 -complete=file Open call v_file.open(<q-args>)
-  command! OpenClipbord echom 'open ' . @+ | call v_file.open(@+)
-  command! OpenParenthese exe 'normal "oyi)' | echom 'open ' . @o | call v_file.open(@o)
+function! s:hooks.open() abort
+  " Open は Vim 9.1 標準 (dist/vim9.vim の Open) に委譲。vital.vim 依存は廃止
+  " OpenClipbord/OpenParenthese は標準 URLOpen (補完なし・単一引数) を利用
+  command! OpenClipbord echom 'open ' . @+ | exe 'URLOpen ' . @+
+  command! OpenParenthese exe 'normal "oyi)' | echom 'open ' . @o | exe 'URLOpen ' . @o
 endfunction
 
 "---------------------------------------------------------------------------
@@ -291,7 +290,7 @@ function! g:PluginsManager() abort
   let s:pm = {}
   "---------------------------------------------------------------------------
   function! s:pm.load_plugins() abort
-    packadd vital.vim | call s:hooks.vital()
+    call s:hooks.open()
 
     packadd open-browser.vim | call s:hooks.open_browser()
     "packadd previm " depends open-browser.vim
