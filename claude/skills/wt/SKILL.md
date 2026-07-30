@@ -1,72 +1,72 @@
 ---
 name: wt
-description: Check for uncommitted git changes and propose switching to a worktree. Use when starting new work on a branch with existing changes, or when the Worktree Rule in CLAUDE.md triggers.
+description: 未コミットの git 変更を確認し、worktree への切り替えを提案する。既存の変更があるブランチで新しい作業を始めるとき、または CLAUDE.md の Worktree Rule が発動したときに使用する。
 argument-hint: "[base branch: <branch>] [name: <worktree-name>]"
 allowed-tools: Bash(git *) EnterWorktree
 ---
 
 # Worktree Proposal Skill
 
-Check the current branch and uncommitted changes, then propose the appropriate action based on the situation.
+現在のブランチと未コミット変更を確認し、状況に応じた適切なアクションを提案する。
 
 ## Arguments
 
-- `base branch: <branch>` — (optional) Base branch for the worktree (e.g. `qa`, `master`). If specified, the worktree will be reset to `origin/<branch>` after creation.
-- `name: <worktree-name>` — (optional) Name for the worktree. Passed to EnterWorktree.
+- `base branch: <branch>` — (任意) worktree のベースブランチ (例: `qa`, `master`)。指定された場合、worktree 作成後に `origin/<branch>` へ reset する。
+- `name: <worktree-name>` — (任意) worktree の名前。EnterWorktree に渡す。
 
 ## Steps
 
-1. Run the following commands to detect branch and changes:
+1. 以下のコマンドでブランチと変更を検出する:
    ```
    git branch --show-current
    git diff --stat
    git diff --cached --stat
    ```
 
-2. Determine the situation and act accordingly:
+2. 状況を判定し、それに応じて行動する:
 
-### Case A: main/master + no changes
-Report "No uncommitted changes on main. Proceeding with work." and exit.
+### Case A: main/master + 変更なし
+「main に未コミット変更はありません。このまま作業を進めます」と報告して終了する。
 
-### Case B: main/master + changes exist
-Display a summary of the changes and present the user with options:
-- **wt**: Switch to a worktree to isolate new work (protects existing uncommitted changes)
-- **continue**: Proceed on the current branch as-is
+### Case B: main/master + 変更あり
+変更のサマリを表示し、ユーザーに選択肢を提示する:
+- **wt**: worktree に切り替えて新しい作業を隔離する (既存の未コミット変更を保護)
+- **continue**: 現在のブランチのまま進める
 
-### Case C: Feature branch + changes exist
-Display a summary of the changes and present the user with options:
-- **wt**: Switch to a worktree to isolate new work (protects existing uncommitted changes on the feature branch)
-- **continue**: Proceed on the current feature branch as-is
+### Case C: feature ブランチ + 変更あり
+変更のサマリを表示し、ユーザーに選択肢を提示する:
+- **wt**: worktree に切り替えて新しい作業を隔離する (feature ブランチ上の既存の未コミット変更を保護)
+- **continue**: 現在の feature ブランチのまま進める
 
-### Case D: Feature branch + no changes
-Report the current branch name and ask the user whether the previous work on this branch is finished:
-- **done**: The previous work is finished → return to main/master and pull
-- **wt**: The previous work is NOT finished → switch to a worktree (based on main/master) to start the new task
+### Case D: feature ブランチ + 変更なし
+現在のブランチ名を報告し、このブランチでの前の作業が完了しているかユーザーに確認する:
+- **done**: 前の作業は完了 → main/master に戻って pull する
+- **wt**: 前の作業は未完了 → 新しいタスク用に worktree (main/master ベース) へ切り替える
 
-3. Execute the chosen action:
+3. 選択されたアクションを実行する:
 
-**If wt** (Case B or C):
-   - Use the `EnterWorktree` tool to switch to a worktree (pass `name` if provided)
-   - **If `base branch` was specified**, run the following to rebase onto the target branch:
+**wt の場合 (Case B または C):**
+   - `EnterWorktree` ツールで worktree に切り替える (`name` があれば渡す)
+   - **`base branch` が指定されていた場合**、以下を実行して対象ブランチに載せ替える:
      ```bash
      git fetch origin <branch> && git reset --hard origin/<branch> && git branch -u origin/<branch>
      ```
-   - Verify the result with `git log origin/<branch>..HEAD --oneline` (should be empty)
-   - Report the transition and resume the original task
+   - `git log origin/<branch>..HEAD --oneline` で結果を確認する (空であるべき)
+   - 切り替えを報告し、元のタスクを再開する
 
-**If done** (Case D):
-   - Detect the default branch name (`main` or `master`)
-   - Run `git checkout <default-branch> && git pull`
-   - Report the transition and resume the original task
+**done の場合 (Case D):**
+   - デフォルトブランチ名 (`main` か `master`) を検出する
+   - `git checkout <default-branch> && git pull` を実行する
+   - 切り替えを報告し、元のタスクを再開する
 
-**If wt** (Case D):
-   - Use the `EnterWorktree` tool to switch to a worktree (pass `name` if provided)
-   - Reset to main/master:
+**wt の場合 (Case D):**
+   - `EnterWorktree` ツールで worktree に切り替える (`name` があれば渡す)
+   - main/master へ reset する:
      ```bash
      git fetch origin <default-branch> && git reset --hard origin/<default-branch> && git branch -u origin/<default-branch>
      ```
-   - Verify the result with `git log origin/<default-branch>..HEAD --oneline` (should be empty)
-   - Report the transition and resume the original task
+   - `git log origin/<default-branch>..HEAD --oneline` で結果を確認する (空であるべき)
+   - 切り替えを報告し、元のタスクを再開する
 
-**If continue**:
-   - Proceed with work on the current branch without switching
+**continue の場合:**
+   - 切り替えずに現在のブランチで作業を進める

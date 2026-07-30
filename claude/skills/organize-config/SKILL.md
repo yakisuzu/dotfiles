@@ -1,6 +1,6 @@
 ---
 name: organize-config
-description: Analyze current repo's CLAUDE.md, rules, skills, hooks, and scripts placement. Propose reorganization based on best practices.
+description: 現在の repo の CLAUDE.md / rules / skills / hooks / scripts の配置を分析し、ベストプラクティスに基づく再編成を提案する。
 user-invocable: true
 disable-model-invocation: true
 allowed-tools: Read, Glob, Grep, Bash, Write, Edit, Agent
@@ -9,26 +9,26 @@ argument-hint: "[audit|migrate|init] [team|personal]"
 
 # Organize Config Skill
 
-Analyze Claude Code configuration (CLAUDE.md / rules / skills / hooks / scripts) and propose reorganization based on best practices.
+Claude Code の設定 (CLAUDE.md / rules / skills / hooks / scripts) を分析し、ベストプラクティスに基づく再編成を提案する。
 
 ## Usage
 
-- `/organize-config audit [team|personal]` -- Analyze current configuration and output improvement proposals
-- `/organize-config migrate [team|personal]` -- Execute file moves/splits based on analysis results
-- `/organize-config init [team|personal]` -- Generate minimal configuration for a new repository
+- `/organize-config audit [team|personal]` -- 現在の設定を分析し、改善提案を出力する
+- `/organize-config migrate [team|personal]` -- 分析結果に基づきファイルの移動・分割を実行する
+- `/organize-config init [team|personal]` -- 新規リポジトリ向けの最小構成を生成する
 
-Default action (no argument) is `audit`. Default mode (no second argument) is detected via Step 0 below.
+引数なしのデフォルトアクションは `audit`。第2引数なしの場合のモードは下記 Step 0 で判定する。
 
 ### Modes
 
-Two distribution modes drive the proposal logic. They MUST be resolved before Step 2:
+提案ロジックは 2 つの配布モードで分岐する。Step 2 より前に必ず確定させること:
 
-- **`team`** -- Company / team development. Multiple repos share the same skill set. Standalone `.claude/skills/` duplicated across repos is an anti-pattern.
+- **`team`** -- 会社・チーム開発。複数 repo が同じ skill セットを共有する。repo 間で複製された standalone `.claude/skills/` はアンチパターン。
 
-  **Default distribution architecture (team mode):**
-  - **One org, one marketplace repo** (e.g. `<org>/claude-plugins`). All team plugins live here so any team member can discover any team's skills via `/plugin` Discover tab
-  - **Per-team plugin** inside that repo: `plugins/shared/`, `plugins/<team-name>/`, ... Each gets its own `plugin.json` (`name`, `version`) and `skills/`
-  - **Per-repo `.claude/settings.json`** wires the marketplace and selectively enables plugins for that repo's team:
+  **デフォルトの配布アーキテクチャ (team モード):**
+  - **1 org に 1 marketplace repo** (例: `<org>/claude-plugins`)。全チームの plugin をここに集約し、どのメンバーも `/plugin` の Discover タブからどのチームの skill でも発見できるようにする
+  - その repo 内に **チームごとの plugin**: `plugins/shared/`, `plugins/<team-name>/`, ... それぞれに `plugin.json` (`name`, `version`) と `skills/` を持たせる
+  - **repo ごとの `.claude/settings.json`** で marketplace を登録し、その repo のチームの plugin だけを選択的に有効化する:
     ```json
     {
       "extraKnownMarketplaces": {
@@ -41,172 +41,172 @@ Two distribution modes drive the proposal logic. They MUST be resolved before St
     }
     ```
 
-  **Three-layer model -- understand before proposing:**
-  1. **Marketplace registered** (`extraKnownMarketplaces`) -> the catalog is visible in `/plugin` Discover tab. All listed plugins are discoverable, even other teams'
-  2. **Plugin installed** (`/plugin install` or auto-prompted on repo trust when `enabledPlugins` lists it) -> downloaded to cache
-  3. **Plugin enabled** (`enabledPlugins: true`) -> namespace `/<plugin>:<skill>` is invokable and shows in completion
+  **3 層モデル -- 提案の前に理解しておくこと:**
+  1. **Marketplace 登録済み** (`extraKnownMarketplaces`) -> カタログが `/plugin` の Discover タブに見える。他チームの plugin も含め、一覧の全 plugin が発見可能
+  2. **Plugin インストール済み** (`/plugin install`、または `enabledPlugins` に記載があり repo を trust した際の自動プロンプト) -> キャッシュにダウンロードされる
+  3. **Plugin 有効化済み** (`enabledPlugins: true`) -> namespace `/<plugin>:<skill>` が起動可能になり、補完に表示される
 
-  **Implications for proposals:**
-  - Default-enabled per repo = `shared` + that team's plugin only. Other teams' skills do NOT pollute completion
-  - Other teams' skills remain **discoverable** via `/plugin` and can be installed ad-hoc (`/plugin install <other-team>@<marketplace>`) or pinned at user scope (`~/.claude/settings.json`) for individuals who cross teams
+  **提案への含意:**
+  - repo ごとのデフォルト有効化 = `shared` + そのチームの plugin のみ。他チームの skill が補完を汚染しない
+  - 他チームの skill は `/plugin` から**発見可能**なままで、アドホックにインストールしたり (`/plugin install <other-team>@<marketplace>`)、チームを跨ぐ個人が user スコープ (`~/.claude/settings.json`) で固定したりできる
 
-- **`personal`** -- Solo work. Single user, may span multiple repos but no shared distribution required. Standalone `~/.claude/skills/` or per-repo `.claude/skills/` is acceptable. Plugin overhead is not required.
+- **`personal`** -- 個人作業。ユーザーは 1 人で、複数 repo に跨ってもよいが共有配布は不要。standalone の `~/.claude/skills/` や repo ごとの `.claude/skills/` で問題ない。plugin のオーバーヘッドは不要。
 
 ## Instructions
 
-### Step 0: Resolve mode (team vs personal)
+### Step 0: モードを確定する (team vs personal)
 
-If the user passed `team` or `personal` as the second argument, use it directly.
+ユーザーが第2引数に `team` / `personal` を渡していればそれをそのまま使う。
 
-Otherwise, detect from repo signals:
-- Multiple distinct authors in `git log --format='%ae' | sort -u` (> 1 non-bot email) -> likely `team`
-- Remote is under a personal GitHub account / no remote -> likely `personal`
-- Repo has a parent CLAUDE.md indicating monorepo / company conventions -> likely `team`
+なければ repo のシグナルから判定する:
+- `git log --format='%ae' | sort -u` に複数の作者 (bot 以外のメールが 2 つ以上) -> `team` の可能性が高い
+- remote が個人の GitHub アカウント配下 / remote なし -> `personal` の可能性が高い
+- 親ディレクトリに monorepo / 会社の規約を示す CLAUDE.md がある -> `team` の可能性が高い
 
-If detection is ambiguous, ASK the user once: "Treat this repo as `team` (shared with others) or `personal`?" Then proceed.
+判定が曖昧な場合は 1 回だけユーザーに確認する:「この repo は `team` (他者と共有) と `personal` のどちらとして扱いますか?」その後続行する。
 
-Record the resolved mode and use it throughout subsequent steps.
+確定したモードを記録し、以降のステップ全体で使用する。
 
-### Step 1: Gather current state
+### Step 1: 現状を収集する
 
-Collect the following:
+以下を収集する:
 
-1. **CLAUDE.md** -- Read from project root and `.claude/CLAUDE.md`, count lines
-2. **Rules** -- Read all files under `.claude/rules/`. Check `paths` / `alwaysApply` in frontmatter
-3. **Skills** -- Read all files under `.claude/skills/` AND `~/.claude/skills/`. For each: parse YAML frontmatter (`name`, `description`, `when_to_use`, `allowed-tools`, `disable-model-invocation`, `context`, etc.), count SKILL.md body lines, list supporting files (`scripts/`, `reference/`, templates). Note skills present in BOTH layers (potential collision). Flag skill directories with NO SKILL.md (dead placeholder)
-4. **Legacy commands** -- List `.claude/commands/*.md` and `~/.claude/commands/*.md`. Custom commands have been merged into skills; these files still work but are migration candidates
-5. **Plugin / marketplace registration** -- Read `.claude/settings.json` and `~/.claude/settings.json`. Inspect `extraKnownMarketplaces` and `enabledPlugins`. List which marketplaces / plugins are already wired up
-6. **Cross-repo duplication (team mode only)** -- If the user can supply sibling repo paths or a list of project roots, scan each for `.claude/skills/<same-name>/SKILL.md`. Without that input, ASK: "List sibling repos to scan for duplicated skills, or skip." Skills with identical names across 2+ repos are duplication candidates
-7. **Hooks** -- Read `hooks` section in settings.json (both `~/.claude/settings.json` and `.claude/settings.json`), plus `hooks` frontmatter in skills/agents. List hook scripts referenced by `command` fields, and note hook `type` (`command` / `http` / `mcp_tool` / `prompt` / `agent`)
-8. **Hook scripts** -- Read all files under `.claude/hooks/` and `~/.claude/hooks/`. Check language, permissions, and placement
-9. **Parent directory** -- If a parent CLAUDE.md exists, check its contents (monorepo support)
+1. **CLAUDE.md** -- プロジェクトルートと `.claude/CLAUDE.md` を読み、行数を数える
+2. **Rules** -- `.claude/rules/` 配下の全ファイルを読む。frontmatter の `paths` / `alwaysApply` を確認する
+3. **Skills** -- `.claude/skills/` と `~/.claude/skills/` の両方の配下の全ファイルを読む。各 skill について: YAML frontmatter (`name`, `description`, `when_to_use`, `allowed-tools`, `disable-model-invocation`, `context` 等) をパースし、SKILL.md 本文の行数を数え、補助ファイル (`scripts/`, `reference/`, テンプレート) を列挙する。両レイヤーに存在する skill (衝突候補) を記録する。SKILL.md のない skill ディレクトリ (死んだ placeholder) をフラグする
+4. **Legacy commands** -- `.claude/commands/*.md` と `~/.claude/commands/*.md` を列挙する。custom command は skill に統合済み。これらのファイルはまだ動作するが移行候補
+5. **Plugin / marketplace 登録** -- `.claude/settings.json` と `~/.claude/settings.json` を読む。`extraKnownMarketplaces` と `enabledPlugins` を調べ、どの marketplace / plugin が既に接続されているか列挙する
+6. **repo 間の重複 (team モードのみ)** -- ユーザーが兄弟 repo のパスやプロジェクトルート一覧を提供できる場合、各 repo の `.claude/skills/<same-name>/SKILL.md` をスキャンする。入力がなければ確認する:「重複 skill をスキャンする兄弟 repo を列挙してください。不要ならスキップします」。2 つ以上の repo に同名の skill があれば重複候補
+7. **Hooks** -- settings.json (`~/.claude/settings.json` と `.claude/settings.json` の両方) の `hooks` セクション、および skill / agent の frontmatter 内の `hooks` を読む。`command` フィールドが参照する hook スクリプトを列挙し、hook の `type` (`command` / `http` / `mcp_tool` / `prompt` / `agent`) を記録する
+8. **Hook スクリプト** -- `.claude/hooks/` と `~/.claude/hooks/` 配下の全ファイルを読む。言語・実行権限・配置を確認する
+9. **親ディレクトリ** -- 親に CLAUDE.md があればその内容を確認する (monorepo 対応)
 
-### Step 2: Analyze based on placement rules
+### Step 2: 配置ルールに基づき分析する
 
-Evaluate each entry against these placement principles:
+各エントリを以下の配置原則に照らして評価する:
 
-| Location | Suitable content | Context cost |
-|----------|-----------------|--------------|
-| **CLAUDE.md** | Build commands, code conventions, environment quirks, shared team knowledge. **Under 200 lines** | High (full text loaded every time) |
-| **rules/** | Conditional reminders, path-specific rules. Lazy-loaded via `paths` | Medium (conditional) |
-| **skills/** | Domain expertise, reusable workflows, on-demand references | Low (loaded only on invocation. Only `name` + `description`/`when_to_use` always loaded, truncated at 1,536 chars) |
-| **hooks (settings.json)** | Hook definitions: event, matcher, command reference. Inline commands for simple one-liners | N/A (not loaded into context) |
-| **hooks/** | Hook scripts referenced from settings.json. Standalone executables (.sh, .js) | N/A (executed on events) |
-| **skills/\*/scripts/** | Supporting scripts for a specific skill. Referenced from SKILL.md | N/A (executed on demand) |
+| 配置場所 | 適した内容 | コンテキストコスト |
+|----------|-----------|-------------------|
+| **CLAUDE.md** | ビルドコマンド、コード規約、環境の癖、チーム共有の知識。**200 行未満** | 高 (毎回全文ロード) |
+| **rules/** | 条件付きリマインダー、パス限定ルール。`paths` で遅延ロード | 中 (条件付き) |
+| **skills/** | ドメイン知識、再利用可能なワークフロー、オンデマンド参照 | 低 (起動時のみロード。常時ロードは `name` + `description`/`when_to_use` のみで 1,536 文字で切り詰め) |
+| **hooks (settings.json)** | hook 定義: event, matcher, command 参照。単純なワンライナーはインラインで可 | なし (コンテキストにロードされない) |
+| **hooks/** | settings.json から参照される hook スクリプト。単体で実行可能なファイル (.sh, .js) | なし (イベント時に実行) |
+| **skills/\*/scripts/** | 特定 skill の補助スクリプト。SKILL.md から参照 | なし (オンデマンドで実行) |
 
-#### Specific criteria
+#### 個別基準
 
-Items to **move out of** CLAUDE.md:
-- Instructions relevant only to specific file patterns -> Move to `rules/` (with `paths`)
-- Procedures, workflows, templates -> Move to `skills/`
-- When exceeding 200 lines, move lower-priority items first
+CLAUDE.md から**外に出す**もの:
+- 特定のファイルパターンにのみ関係する指示 -> `rules/` へ (`paths` 付き)
+- 手順、ワークフロー、テンプレート -> `skills/` へ
+- 200 行を超えた場合、優先度の低いものから移す
 
-Items to **move out of** Rules:
-- `alwaysApply: true` with no `paths`, and short -> Consider merging into CLAUDE.md
-- Contains complex procedures or templates -> Split to `skills/`, keep only a reference in the rule
+Rules から**外に出す**もの:
+- `paths` なしの `alwaysApply: true` で短いもの -> CLAUDE.md への統合を検討
+- 複雑な手順やテンプレートを含む -> `skills/` へ分割し、rule には参照だけ残す
 
-Items to **create as** Skills:
-- Repeatedly used workflows (PR creation, deploy procedures, etc.)
-- Deep domain knowledge (API specs, DB design, etc.)
+Skills として**作る**もの:
+- 繰り返し使うワークフロー (PR 作成、デプロイ手順等)
+- 深いドメイン知識 (API 仕様、DB 設計等)
 
-#### Skill quality criteria
+#### Skill 品質基準
 
-Spec compliance is DELEGATED to the live official docs -- this file does not restate them. At audit time, fetch the current rules and evaluate each SKILL.md against them:
+仕様への準拠チェックは公式ドキュメント (ライブ) に**委譲**する -- このファイルには転記しない。audit 時に最新のルールを取得し、各 SKILL.md をそれに照らして評価する:
 
-- Frontmatter reference (all fields, limits, invocation control, substitutions): https://code.claude.com/docs/en/skills.md
-- Authoring best practices (naming, description style, body length, progressive disclosure): https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices
+- Frontmatter リファレンス (全フィールド、上限値、起動制御、変数展開): https://code.claude.com/docs/en/skills.md
+- Authoring ベストプラクティス (命名、description の書き方、本文の長さ、progressive disclosure): https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices
 
-Check at minimum, per the CURRENT spec found there: directory/`name` validity, `description` / `when_to_use` style and truncation limits, body length and reference-file structure, and whether invocation-control fields (`disable-model-invocation`, `user-invocable`, `context: fork`, `allowed-tools`, `model` / `effort`, `paths`) are used where the docs recommend them.
+最低限、そこで得た**現行仕様**に基づいて確認すること: ディレクトリ名 / `name` の妥当性、`description` / `when_to_use` の書き方と切り詰め上限、本文の長さと参照ファイル構造、起動制御フィールド (`disable-model-invocation`, `user-invocable`, `context: fork`, `allowed-tools`, `model` / `effort`, `paths`) がドキュメントの推奨どおりに使われているか。
 
-**Additional viewpoints (not covered by the official docs):**
-- Bundled-skill overlap: enumerate Claude Code's bundled skills (commands reference, or `/help`). A custom skill duplicating a bundled one (e.g. `/run`, `/verify`, `/code-review`, `/update-config`, `/run-skill-generator`) SHOULD shrink to a thin wrapper: delegate to the bundled skill and keep only repo/team-specific additions (extra checks, defaults, policies)
-- Cross-skill consistency within the repo: uniform naming pattern (don't mix `processing-pdfs` and `pdf-tool` and `do_excel`), one term per concept across skills
-- Hardcoded paths: skill bodies MUST use `${CLAUDE_SKILL_DIR}` / `${CLAUDE_PROJECT_DIR}`, never `~/.claude/skills/<name>/...` -- hardcoded paths break for plugin installs and other users
-- `allowed-tools` scoping: scoped rules (`Bash(git *)`, `Bash(${CLAUDE_SKILL_DIR}/scripts/run.sh *)`), not bare tool names like `Bash`
-- `model` / `effort` values: aliases (`sonnet`, `opus`, `haiku`, `fable`) or `inherit`; NEVER pin dated model IDs -- they go stale
+**追加観点 (公式ドキュメントがカバーしないもの):**
+- bundled skill との重複: Claude Code の bundled skill を列挙する (commands リファレンス、または `/help`)。bundled skill (例: `/run`, `/verify`, `/code-review`, `/update-config`, `/run-skill-generator`) と重複する custom skill は薄い wrapper に縮小すべき: bundled skill に委譲し、repo / チーム固有の追加分 (追加チェック、デフォルト値、ポリシー) だけを残す
+- repo 内の skill 間一貫性: 命名パターンの統一 (`processing-pdfs` と `pdf-tool` と `do_excel` を混在させない)、skill を跨いで 1 概念 1 用語
+- ハードコードされたパス: skill 本文は `${CLAUDE_SKILL_DIR}` / `${CLAUDE_PROJECT_DIR}` を使うこと。`~/.claude/skills/<name>/...` は禁止 -- ハードコードされたパスは plugin 配布時や他ユーザー環境で壊れる
+- `allowed-tools` のスコープ: スコープ付きルール (`Bash(git *)`, `Bash(${CLAUDE_SKILL_DIR}/scripts/run.sh *)`) を使う。`Bash` のような裸のツール名は不可
+- `model` / `effort` の値: alias (`sonnet`, `opus`, `haiku`, `fable`) か `inherit` を使う。日付付き model ID の固定は禁止 -- 陳腐化する
 
-#### Skill distribution criteria
+#### Skill 配布基準
 
-Distribution rules differ by mode resolved in Step 0. Precedence at runtime is always **managed > personal > project**. Plugin skills live alongside whichever layer enables them (typically personal for `extraKnownMarketplaces` set at user scope, or project for repo-committed settings).
+配布ルールは Step 0 で確定したモードにより異なる。実行時の優先順位は常に **managed > personal > project**。plugin の skill は、それを有効化したレイヤー側に属する (user スコープの `extraKnownMarketplaces` なら personal、repo にコミットされた settings なら project が典型)。
 
-**Mode = `team` (default for company / multi-repo):**
+**Mode = `team` (会社 / 複数 repo のデフォルト):**
 
-Target architecture = **1 org / 1 marketplace repo containing per-team plugins (`shared` + `<team-name>`), wired via per-repo `.claude/settings.json` with `extraKnownMarketplaces` + `enabledPlugins` selecting that repo's team plugins**.
+目標アーキテクチャ = **1 org / 1 marketplace repo にチームごとの plugin (`shared` + `<team-name>`) を置き、repo ごとの `.claude/settings.json` の `extraKnownMarketplaces` + `enabledPlugins` でその repo のチームの plugin を選択する**。
 
-| Layer | Path | When to use in team mode |
-|-------|------|--------------------------|
-| Team marketplace plugin | `<org>/claude-plugins` repo, `plugins/<team-or-shared>/` | DEFAULT for any skill / hook / agent shared by 2+ team members |
-| Project standalone | `<repo>/.claude/skills/` | Only for skills truly specific to ONE repo and unlikely to be reused |
-| Personal | `~/.claude/skills/` | Individual cross-team augmentation (e.g. backend dev who often touches frontend, enabling `frontend@<marketplace>` at user scope) |
-| Managed (org-wide) | admin console | Only when org-wide enforcement is required (compliance, security policies that must not be overridden) |
+| レイヤー | パス | team モードで使う場面 |
+|---------|------|----------------------|
+| Team marketplace plugin | `<org>/claude-plugins` repo, `plugins/<team-or-shared>/` | 2 人以上のメンバーが共有する skill / hook / agent のデフォルト |
+| Project standalone | `<repo>/.claude/skills/` | 本当にその repo 固有で再利用の見込みがない skill のみ |
+| Personal | `~/.claude/skills/` | 個人のチーム横断的な補強 (例: frontend をよく触る backend 開発者が `frontend@<marketplace>` を user スコープで有効化) |
+| Managed (org 全体) | 管理コンソール | org 全体での強制が必要な場合のみ (コンプライアンス、上書きさせないセキュリティポリシー) |
 
-**Plugin grouping rule:**
-- Skill used by 2+ teams -> `plugins/shared/`
-- Skill used by exactly 1 team -> `plugins/<team-name>/`
-- Skill used by only 1 repo within 1 team -> stays as project-standalone `<repo>/.claude/skills/`
+**Plugin グルーピングルール:**
+- 2 チーム以上が使う skill -> `plugins/shared/`
+- ちょうど 1 チームが使う skill -> `plugins/<team-name>/`
+- 1 チーム内の 1 repo だけが使う skill -> project standalone `<repo>/.claude/skills/` のまま
 
-Items to **flag** in `team` mode:
-- Same skill name (or near-identical content) found in 2+ project `.claude/skills/` -> Propose extracting to a plugin in the org marketplace; choose `shared` vs `<team>` per grouping rule above
-- Skill in `<repo>/.claude/skills/` that is generic (not repo-specific) and `git log` shows multiple team members touching it -> Propose promoting to the team's plugin
-- Repo lacks `extraKnownMarketplaces` in `.claude/settings.json` but the org marketplace exists -> Propose committing the registration so cloners can discover all team plugins via `/plugin`
-- `extraKnownMarketplaces` registered but `enabledPlugins` empty / missing this repo's team -> Warn: marketplace catalog is visible but no plugin is auto-enabled; nothing is invokable by default. Propose adding `shared@<marketplace>` + the relevant team plugin
-- `enabledPlugins` lists plugins from teams unrelated to this repo -> Question whether they belong here, or should be moved to user scope (`~/.claude/settings.json`) so they don't pollute team mates' completion
-- Personal skill (`~/.claude/skills/`) that other team members also need -> Propose promoting to the team plugin in the org marketplace
-- Hook scripts duplicated across repos -> Move into the plugin's `hooks/hooks.json` (same schema as settings.json hooks)
-- Name collision between personal and project skill with same `name:` -> Warn: precedence silently masks one
-- Plugin skill name lacks plugin namespace awareness (will be invoked as `/<plugin-name>:<skill-name>`) -> Verify chosen names read naturally with the namespace prefix (e.g. `backend:deploy-check` not `backend:backend-deploy-check`)
+`team` モードで**フラグする**もの:
+- 2 つ以上のプロジェクトの `.claude/skills/` に同名 (またはほぼ同内容) の skill -> org marketplace の plugin への抽出を提案。`shared` か `<team>` かは上記グルーピングルールで選ぶ
+- `<repo>/.claude/skills/` にある汎用的 (repo 固有でない) な skill で、`git log` 上複数メンバーが触っている -> チームの plugin への昇格を提案
+- org marketplace が存在するのに repo の `.claude/settings.json` に `extraKnownMarketplaces` がない -> 登録のコミットを提案し、clone した人が `/plugin` で全チームの plugin を発見できるようにする
+- `extraKnownMarketplaces` は登録済みだが `enabledPlugins` が空 / この repo のチーム分がない -> 警告: カタログは見えるが plugin は自動有効化されず、デフォルトでは何も起動できない。`shared@<marketplace>` + 該当チームの plugin の追加を提案
+- `enabledPlugins` にこの repo と無関係なチームの plugin がある -> ここにあるべきか、user スコープ (`~/.claude/settings.json`) に移してチームメイトの補完を汚染しないようにすべきかを問う
+- 他のメンバーも必要とする personal skill (`~/.claude/skills/`) -> org marketplace のチーム plugin への昇格を提案
+- repo 間で重複した hook スクリプト -> plugin の `hooks/hooks.json` へ移す (settings.json の hooks と同じスキーマ)
+- personal と project で同じ `name:` の skill が衝突 -> 警告: 優先順位により片方が黙ってマスクされる
+- plugin の skill 名が namespace を考慮していない (`/<plugin-name>:<skill-name>` として起動される) -> namespace プレフィックス付きで自然に読める名前か確認する (例: `backend:deploy-check`。`backend:backend-deploy-check` は不可)
 
-**Mode = `personal` (default for solo work):**
+**Mode = `personal` (個人作業のデフォルト):**
 
-Target distribution = **standalone `.claude/skills/` (project or personal scope)**. Plugin overhead is not required.
+目標配布 = **standalone `.claude/skills/` (project または personal スコープ)**。plugin のオーバーヘッドは不要。
 
-| Layer | Path | When to use in personal mode |
-|-------|------|------------------------------|
-| Project standalone | `<repo>/.claude/skills/` | Repo-specific skills |
-| Personal | `~/.claude/skills/` | Skills used across own repos |
-| Plugin | (optional) | Only if the user is also distributing the same skills publicly or to others |
-| Managed | -- | N/A |
+| レイヤー | パス | personal モードで使う場面 |
+|---------|------|--------------------------|
+| Project standalone | `<repo>/.claude/skills/` | repo 固有の skill |
+| Personal | `~/.claude/skills/` | 自分の複数 repo を跨いで使う skill |
+| Plugin | (任意) | 同じ skill を公開配布・他者配布もする場合のみ |
+| Managed | -- | 対象外 |
 
-Items to **flag** in `personal` mode:
-- Skill duplicated between `~/.claude/skills/` and `<repo>/.claude/skills/` with same `name:` -> Pick one layer; precedence masks the other
-- Skill used in many of the user's own repos but living only in one project -> Propose promoting to `~/.claude/skills/`
-- Do NOT propose plugin extraction unless the user explicitly says they want to distribute the skill
+`personal` モードで**フラグする**もの:
+- `~/.claude/skills/` と `<repo>/.claude/skills/` に同じ `name:` の skill が重複 -> どちらか一方のレイヤーに寄せる。優先順位が他方をマスクする
+- 自分の多くの repo で使っているのに 1 プロジェクトにしかない skill -> `~/.claude/skills/` への昇格を提案
+- ユーザーが明示的に配布したいと言わない限り、plugin への抽出は提案しない
 
-#### Hooks and scripts criteria
+#### Hooks / スクリプト基準
 
-Placement rules for hook scripts:
-- Project-level hook scripts -> `.claude/hooks/`
-- Personal (cross-project) hook scripts -> `~/.claude/hooks/`
-- Skill-specific scripts -> `<skill>/scripts/`
-- Hooks that only matter while a specific skill/agent is active -> `hooks` frontmatter in that skill/agent (scoped lifecycle), not global settings.json
-- Simple one-liner hooks can stay inline in settings.json `command` field
-- Multi-line or complex logic MUST be extracted to a script file
+hook スクリプトの配置ルール:
+- プロジェクトレベルの hook スクリプト -> `.claude/hooks/`
+- 個人用 (プロジェクト横断) の hook スクリプト -> `~/.claude/hooks/`
+- skill 固有のスクリプト -> `<skill>/scripts/`
+- 特定の skill / agent がアクティブな間だけ意味を持つ hook -> その skill / agent の frontmatter の `hooks` (ライフサイクル限定)。グローバルの settings.json には置かない
+- 単純なワンライナー hook は settings.json の `command` フィールドにインラインで可
+- 複数行または複雑なロジックは必ずスクリプトファイルに抽出する
 
-Hook definition quality (settings.json / frontmatter):
-- Hook `type` is not limited to `command`: `prompt` / `agent` (LLM-evaluated checks), `http` (endpoints), `mcp_tool` are available. A `command` script that re-implements fuzzy judgment logic is a candidate for `type: prompt`
-- Use the `if` field (permission-rule syntax, e.g. `"if": "Bash(git push *)"`) to gate tool-event hooks instead of grepping tool input inside the script
-- Slow side-effect hooks (TTS, notifications, network calls) on `Stop` / `PostToolUse` SHOULD set `async: true` so they don't block the session
-- Long-running hooks SHOULD set an explicit `timeout`; user-facing ones benefit from `statusMessage`
+hook 定義の品質 (settings.json / frontmatter):
+- hook の `type` は `command` に限らない: `prompt` / `agent` (LLM による判定)、`http` (エンドポイント)、`mcp_tool` が使える。曖昧な判定ロジックを再実装している `command` スクリプトは `type: prompt` への置き換え候補
+- ツールイベントの hook は、スクリプト内で tool input を grep するのではなく `if` フィールド (permission ルール構文、例: `"if": "Bash(git push *)"`) でゲートする
+- `Stop` / `PostToolUse` 上の遅い副作用 hook (TTS、通知、ネットワーク呼び出し) はセッションをブロックしないよう `async: true` を設定すべき
+- 長時間実行される hook は明示的な `timeout` を設定すべき。ユーザーに見えるものは `statusMessage` があるとよい
 
-Script language preference (in order):
-1. **Shell (sh/bash)** -- Preferred for simple file checks, git operations, text processing
-2. **Node.js (js)** -- Preferred for JSON parsing, complex logic, cross-platform needs
-3. **Python** -- Avoid unless the project already depends on Python
+スクリプト言語の優先順 (上から順に):
+1. **Shell (sh/bash)** -- 単純なファイルチェック、git 操作、テキスト処理に推奨
+2. **Node.js (js)** -- JSON パース、複雑なロジック、クロスプラットフォーム要件に推奨
+3. **Python** -- プロジェクトが既に Python に依存している場合以外は避ける
 
-Items to **flag** in hooks:
-- Scripts placed outside `.claude/hooks/` or `<skill>/scripts/` -> Propose moving to recommended location
-- Python scripts when sh/js would suffice -> Propose rewriting in sh or Node.js
-- Inline commands in settings.json that are complex (pipes, conditionals) -> Propose extracting to a script file
-- Missing executable permission on script files
-- Hardcoded absolute paths instead of `$CLAUDE_PROJECT_DIR` or `${CLAUDE_SKILL_DIR}`
-- Blocking `Stop`/`PostToolUse` hooks doing slow side effects -> Propose `async: true`
-- Unbounded debug log files appended by hook scripts -> Propose rotation/truncation or removal after stabilization
+hooks で**フラグする**もの:
+- `.claude/hooks/` / `<skill>/scripts/` 以外に置かれたスクリプト -> 推奨位置への移動を提案
+- sh/js で足りるのに Python のスクリプト -> sh または Node.js での書き直しを提案
+- settings.json 内の複雑なインラインコマンド (パイプ、条件分岐) -> スクリプトファイルへの抽出を提案
+- スクリプトファイルの実行権限漏れ
+- `$CLAUDE_PROJECT_DIR` / `${CLAUDE_SKILL_DIR}` を使わないハードコードされた絶対パス
+- 遅い副作用を持つブロッキングな `Stop`/`PostToolUse` hook -> `async: true` を提案
+- hook スクリプトが際限なく追記する debug ログファイル -> ローテーション / 切り詰め、または安定後の削除を提案
 
-### Step 3: Output
+### Step 3: 出力
 
 #### `audit` mode
 
-Output a report in the following format:
+以下のフォーマットでレポートを出力する:
 
 ```
 ## Config Analysis Report
@@ -215,36 +215,36 @@ Output a report in the following format:
 - Resolved mode: {team|personal} ({detected|user-specified})
 
 ### Summary
-- CLAUDE.md: {line_count} lines {WARNING if over 200 lines}
-- Rules: {file_count} files (alwaysApply: {count}, path-scoped: {count})
-- Skills: {file_count} files (project: {n}, personal: {n}, body over 500 lines: {n}, name violations: {n})
-- Plugins/Marketplaces: {registered_marketplaces}, {enabled_plugins} (team mode only)
-- Hooks: {hook_count} event types configured, {script_count} external scripts
+- CLAUDE.md: {line_count} 行 {200 行超なら WARNING}
+- Rules: {file_count} ファイル (alwaysApply: {count}, path-scoped: {count})
+- Skills: {file_count} ファイル (project: {n}, personal: {n}, 本文 500 行超: {n}, name 違反: {n})
+- Plugins/Marketplaces: {registered_marketplaces}, {enabled_plugins} (team モードのみ)
+- Hooks: {hook_count} イベント種別を設定済み, 外部スクリプト {script_count} 本
 - Scripts: {languages_used} (sh: {count}, js: {count}, py: {count})
 
 ### Improvement Proposals
-1. [Move] CLAUDE.md L{start}-L{end} "{summary}" -> rules/{proposed-name}.md (Reason: only relevant to {paths})
-2. [Split] rules/{name}.md template section -> skills/{proposed-name}/SKILL.md
-3. [Merge] rules/{name}.md -> Merge into CLAUDE.md (short, always needed)
-4. [Extract] hooks/{event} inline command -> .claude/hooks/{proposed-name}.sh (Reason: complex inline command)
-5. [Move] {script_path} -> .claude/hooks/{name} (Reason: script outside recommended location)
-6. [Rewrite] {script_path} from Python to sh/Node.js (Reason: prefer sh/js over Python)
-7. [Rename] skills/{current-name} -> skills/{proposed-name} (Reason: not kebab-case / reserved word / vague / not gerund form)
-8. [Rewrite description] skills/{name} -- current is first-person / lacks "when to use" / exceeds 1024 chars
-9. [Split skill] skills/{name}/SKILL.md ({n} lines) -> split into SKILL.md + reference/*.md (Reason: over 500 lines)
-10. [Resolve collision] skills/{name} exists in both `~/.claude/skills/` and `.claude/skills/` (Reason: precedence will mask one)
-11. [Migrate command] .claude/commands/{name}.md -> skills/{name}/SKILL.md (Reason: custom commands merged into skills; gains supporting files + invocation control)
-12. [Scope tools] skills/{name} `allowed-tools: Bash` -> `Bash(git *)` etc. (Reason: bare tool name grants everything for the turn)
-13. [Fix path] skills/{name} body references `~/.claude/skills/{name}/...` -> `${CLAUDE_SKILL_DIR}/...` (Reason: hardcoded install path)
-14. [Invocation control] skills/{name} -> add `disable-model-invocation: true` / `user-invocable: false` (Reason: side-effect workflow / background knowledge)
-15. [Async hook] hooks/{event} {script} -> add `async: true` (Reason: slow side effect blocks the session)
-16. [Remove or complete] skills/{name}/ has no SKILL.md (Reason: dead placeholder directory)
-17. [Thin-wrap] skills/{name} duplicates bundled /{bundled-skill} -> delegate to the bundled skill, keep only {repo/team-specific additions} (Reason: bundled skill covers the base workflow; local copy drifts)
+1. [Move] CLAUDE.md L{start}-L{end} "{summary}" -> rules/{proposed-name}.md (理由: {paths} にのみ関係)
+2. [Split] rules/{name}.md のテンプレート節 -> skills/{proposed-name}/SKILL.md
+3. [Merge] rules/{name}.md -> CLAUDE.md へ統合 (短く、常に必要)
+4. [Extract] hooks/{event} のインラインコマンド -> .claude/hooks/{proposed-name}.sh (理由: 複雑なインラインコマンド)
+5. [Move] {script_path} -> .claude/hooks/{name} (理由: 推奨位置の外にあるスクリプト)
+6. [Rewrite] {script_path} を Python から sh/Node.js へ (理由: Python より sh/js を優先)
+7. [Rename] skills/{current-name} -> skills/{proposed-name} (理由: kebab-case でない / 予約語 / 曖昧 / 動名詞形でない)
+8. [Rewrite description] skills/{name} -- 一人称になっている / 「いつ使うか」がない / 1024 文字超
+9. [Split skill] skills/{name}/SKILL.md ({n} 行) -> SKILL.md + reference/*.md に分割 (理由: 500 行超)
+10. [Resolve collision] skills/{name} が `~/.claude/skills/` と `.claude/skills/` の両方に存在 (理由: 優先順位が片方をマスクする)
+11. [Migrate command] .claude/commands/{name}.md -> skills/{name}/SKILL.md (理由: custom command は skill に統合済み。補助ファイルと起動制御が使えるようになる)
+12. [Scope tools] skills/{name} の `allowed-tools: Bash` -> `Bash(git *)` 等 (理由: 裸のツール名はそのターンの全操作を許可してしまう)
+13. [Fix path] skills/{name} 本文が `~/.claude/skills/{name}/...` を参照 -> `${CLAUDE_SKILL_DIR}/...` (理由: インストールパスのハードコード)
+14. [Invocation control] skills/{name} -> `disable-model-invocation: true` / `user-invocable: false` を追加 (理由: 副作用のあるワークフロー / 背景知識)
+15. [Async hook] hooks/{event} {script} -> `async: true` を追加 (理由: 遅い副作用がセッションをブロックする)
+16. [Remove or complete] skills/{name}/ に SKILL.md がない (理由: 死んだ placeholder ディレクトリ)
+17. [Thin-wrap] skills/{name} が bundled の /{bundled-skill} と重複 -> bundled skill に委譲し、{repo/チーム固有の追加分} だけ残す (理由: ベースのワークフローは bundled skill がカバーしており、ローカルコピーは陳腐化する)
 
-**Team mode proposals (skip in personal mode):**
+**Team モードの提案 (personal モードではスキップ):**
 
-18. [Promote to plugin] skills/{name} -> {org}/claude-plugins/plugins/{shared|team-name}/skills/{name} (Reason: duplicated across {repo-A, repo-B} / used by multiple team members. Grouping: {shared if 2+ teams use it, else team plugin})
-19. [Wire marketplace] Add to `.claude/settings.json`:
+18. [Promote to plugin] skills/{name} -> {org}/claude-plugins/plugins/{shared|team-name}/skills/{name} (理由: {repo-A, repo-B} で重複 / 複数メンバーが使用。グルーピング: {2 チーム以上なら shared、それ以外はチーム plugin})
+19. [Wire marketplace] `.claude/settings.json` に追加:
     ```json
     {
       "extraKnownMarketplaces": {
@@ -256,10 +256,10 @@ Output a report in the following format:
       }
     }
     ```
-    (Reason: catalog registration + selective enable for this repo's team)
-20. [Move hooks to plugin] {repo}/hooks/{name} -> {plugin}/hooks/hooks.json (Reason: same hook duplicated across team repos)
-21. [Complete enablement] `extraKnownMarketplaces` is set but `enabledPlugins` is empty/missing -> Add `shared@{marketplace}` + `{team}@{marketplace}` to `enabledPlugins` so plugins actually load (Reason: catalog visible but nothing invokable)
-22. [Move cross-team to user scope] `enabledPlugins` lists `{other-team}@{marketplace}` in project `.claude/settings.json` -> Move to user scope `~/.claude/settings.json` (Reason: only one individual crosses teams; project scope forces it on every team mate)
+    (理由: カタログ登録 + この repo のチーム分の選択的有効化)
+20. [Move hooks to plugin] {repo}/hooks/{name} -> {plugin}/hooks/hooks.json (理由: 同じ hook がチームの repo 間で重複)
+21. [Complete enablement] `extraKnownMarketplaces` はあるが `enabledPlugins` が空 / 欠落 -> `shared@{marketplace}` + `{team}@{marketplace}` を `enabledPlugins` に追加して plugin が実際にロードされるようにする (理由: カタログは見えるが何も起動できない)
+22. [Move cross-team to user scope] project の `.claude/settings.json` の `enabledPlugins` に `{other-team}@{marketplace}` がある -> user スコープ `~/.claude/settings.json` へ移動 (理由: チームを跨ぐのは一個人だけ。project スコープは全チームメイトに強制してしまう)
 ...
 
 ### References
@@ -271,54 +271,54 @@ Output a report in the following format:
 
 #### `migrate` mode
 
-Based on `audit` results, execute file moves/splits with user confirmation.
-Explain each change before executing and wait for approval.
-For settings.json edits (permissions, hooks wiring, env), prefer delegating to the bundled `/update-config` skill instead of hand-editing.
+`audit` の結果に基づき、ユーザー確認を取りながらファイルの移動・分割を実行する。
+各変更は実行前に説明し、承認を待つ。
+settings.json の編集 (permissions, hooks の接続, env) は手編集ではなく bundled の `/update-config` skill への委譲を優先する。
 
 #### `init` mode
 
-Generate minimal configuration for the current repository:
+現在のリポジトリ向けに最小構成を生成する:
 
-1. Create `CLAUDE.md` template if it does not exist
-2. Create `.claude/rules/` directory
-3. Create `.claude/skills/` directory
-4. Create `.claude/hooks/` directory
+1. `CLAUDE.md` テンプレートを作成 (存在しない場合)
+2. `.claude/rules/` ディレクトリを作成
+3. `.claude/skills/` ディレクトリを作成
+4. `.claude/hooks/` ディレクトリを作成
 
-In `team` mode, also:
+`team` モードではさらに:
 
-5. ASK for the team's plugin marketplace repo (`org/repo` or full URL). If supplied, write `.claude/settings.json` with `extraKnownMarketplaces` and a placeholder `enabledPlugins` block so cloners get the marketplace registered automatically
-6. Add `.claude/settings.local.json` to `.gitignore` if not already excluded (keep personal overrides out of the commit)
+5. チームの plugin marketplace repo (`org/repo` または完全 URL) を確認する。提供されたら、clone した人に marketplace が自動登録されるよう `extraKnownMarketplaces` と placeholder の `enabledPlugins` ブロックを含む `.claude/settings.json` を書く
+6. `.claude/settings.local.json` が除外されていなければ `.gitignore` に追加する (個人の上書き設定をコミットに含めない)
 
-In `personal` mode, skip steps 5-6.
+`personal` モードではステップ 5-6 をスキップする。
 
-Template content is adjusted by auto-detecting the repository's language and framework.
+テンプレートの内容はリポジトリの言語・フレームワークを自動検出して調整する。
 
 ## Writing Rules
 
-- **Language**: English and Japanese have no meaningful difference in Claude's comprehension, skill matching accuracy, or token efficiency. Choose whichever language the team uses. Be consistent within a project
-- Do NOT use emojis in any configuration files
-- **How-to only**: Skills MUST contain only procedures and decision criteria. NEVER write investigation results, current state summaries, or repo-specific data that must stay in sync with code. Such data drifts from the source of truth and silently degrades skill quality. Always gather repo state dynamically at runtime. Universal guidelines and thresholds (e.g. official doc metrics) ARE permitted as decision criteria (how to judge).
+- **言語**: 英語と日本語で Claude の理解度・skill マッチング精度・token 効率に意味のある差はない。チームが使う言語を選ぶこと。プロジェクト内では一貫させる
+- いかなる設定ファイルでも絵文字を使わない
+- **How-to のみ**: skill には手順と判断基準だけを書くこと。調査結果、現状のまとめ、コードと同期し続ける必要がある repo 固有データは絶対に書かない。そうしたデータは source of truth から乖離し、skill の品質を静かに劣化させる。repo の状態は常に実行時に動的に収集する。普遍的なガイドラインや閾値 (公式ドキュメントの数値等) は判断基準 (どう判定するか) として書いてよい。
 
 ## Best Practice Reference
 
-When updating configuration, check the latest best practices in these official docs:
+設定を更新する際は、以下の公式ドキュメントで最新のベストプラクティスを確認すること:
 
 - Skills: https://code.claude.com/docs/en/skills.md
 - Skill authoring best practices: https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices
-- Bundled skills / commands reference (for thin-wrapper judgment): https://code.claude.com/docs/en/commands.md
-- Plugins (create): https://code.claude.com/docs/en/plugins
-- Plugin marketplaces (distribute): https://code.claude.com/docs/en/plugin-marketplaces
-- Discover/install plugins (3-layer enablement model): https://code.claude.com/docs/en/discover-plugins
-- Plugins reference (schemas, defaultEnabled, precedence): https://code.claude.com/docs/en/plugins-reference
+- Bundled skills / commands リファレンス (thin-wrapper 判断用): https://code.claude.com/docs/en/commands.md
+- Plugins (作成): https://code.claude.com/docs/en/plugins
+- Plugin marketplaces (配布): https://code.claude.com/docs/en/plugin-marketplaces
+- Plugin の発見/インストール (3 層有効化モデル): https://code.claude.com/docs/en/discover-plugins
+- Plugins リファレンス (スキーマ, defaultEnabled, 優先順位): https://code.claude.com/docs/en/plugins-reference
 - Best Practices: https://code.claude.com/docs/en/best-practices.md
 - Memory & CLAUDE.md: https://code.claude.com/docs/en/memory.md
-- Hooks guide: https://code.claude.com/docs/en/hooks-guide.md
-- Hooks reference (events, types, JSON contract): https://code.claude.com/docs/en/hooks.md
+- Hooks ガイド: https://code.claude.com/docs/en/hooks-guide.md
+- Hooks リファレンス (イベント, type, JSON 契約): https://code.claude.com/docs/en/hooks.md
 
-**Key metrics (subject to change, verify at the URLs above):**
-- CLAUDE.md: Under 200 lines recommended
-- SKILL.md body: Under 500 lines recommended
-- Skill `name`: lowercase + digits + hyphens, max 64 chars, no `anthropic`/`claude`
-- Skill `description`: max 1024 chars, third-person. Combined `description` + `when_to_use` truncated at 1,536 chars in the skill listing -- front-load triggers
-- Skill `model`: aliases (`sonnet` / `opus` / `haiku` / `fable`) or `inherit`; do not pin dated model IDs
-- MEMORY.md: First 200 lines or 25KB loaded
+**主要な数値 (変更されうるため上記 URL で要確認):**
+- CLAUDE.md: 200 行未満推奨
+- SKILL.md 本文: 500 行未満推奨
+- Skill `name`: 小文字 + 数字 + ハイフン、最大 64 文字、`anthropic`/`claude` 禁止
+- Skill `description`: 最大 1024 文字、三人称。skill 一覧では `description` + `when_to_use` の合計が 1,536 文字で切り詰められる -- トリガーを先頭に置く
+- Skill `model`: alias (`sonnet` / `opus` / `haiku` / `fable`) か `inherit`。日付付き model ID は固定しない
+- MEMORY.md: 先頭 200 行または 25KB がロードされる

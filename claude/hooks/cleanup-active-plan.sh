@@ -1,5 +1,5 @@
 #!/bin/bash
-# SessionEnd hook: remove active plan tracking file
+# SessionEnd hook: active plan の追跡ファイルを削除する
 INPUT=$(cat)
 SESSION_ID=$(echo "$INPUT" | jq -r '.session_id')
 
