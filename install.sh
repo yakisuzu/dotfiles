@@ -19,6 +19,36 @@ function LINK_OVERRIDE(){
 }
 
 # ------------------------------
+# base (repo管理) を実体ファイルへ deep-merge する
+# 実体は untracked のままなのでツールの自動書き込みで repo が汚れない
+# base のキーは base が勝ち、実体にしかないキーは温存される
+function MERGE_JSON(){
+  BASE_PATH="$1"
+  DEST_PATH="$2"
+
+  if [ -L "$DEST_PATH" ]; then
+    rm "$DEST_PATH"
+    echo "rm $DEST_PATH"
+  fi
+
+  if ! command -v jq > /dev/null; then
+    echo "jq not found, fallback to copy"
+    COPY_NOT_EXISTS "$BASE_PATH" "$DEST_PATH"
+    return 0
+  fi
+
+  if [ ! -e "$DEST_PATH" ]; then
+    echo "cp $DEST_PATH"
+    cp "$BASE_PATH" "$DEST_PATH"
+    return 0
+  fi
+
+  echo "merge $DEST_PATH"
+  jq -s '.[0] * .[1]' "$DEST_PATH" "$BASE_PATH" > "$DEST_PATH.tmp" \
+    && mv "$DEST_PATH.tmp" "$DEST_PATH"
+}
+
+# ------------------------------
 function COPY_NOT_EXISTS(){
   SRC_PATH="$1"
   DEST_PATH="$2"
@@ -62,7 +92,7 @@ LINK_OVERRIDE "$PWD/vim/.vim/syntax" "$HOME/.vim/syntax"
 echo --------------------
 echo init claude
 mkdir -p "$HOME/.claude"
-LINK_OVERRIDE "$PWD/claude/settings.json" "$HOME/.claude/settings.json"
+MERGE_JSON "$PWD/claude/settings.base.json" "$HOME/.claude/settings.json"
 LINK_OVERRIDE "$PWD/claude/CLAUDE.md" "$HOME/.claude/CLAUDE.md"
 LINK_OVERRIDE "$PWD/claude/hooks" "$HOME/.claude/hooks"
 LINK_OVERRIDE "$PWD/claude/rules" "$HOME/.claude/rules"
@@ -70,5 +100,6 @@ LINK_OVERRIDE "$PWD/claude/skills" "$HOME/.claude/skills"
 COPY_NOT_EXISTS "$PWD/claude/CLAUDE.local.md" "$HOME/.claude/CLAUDE.local.md"
 
 unset LINK_OVERRIDE
+unset MERGE_JSON
 unset COPY_NOT_EXISTS
 popd > /dev/null

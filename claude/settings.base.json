@@ -47,6 +47,7 @@
   "language": "japanese",
   "effortLevel": "high",
   "autoUpdatesChannel": "stable",
+  "tui": "fullscreen",
   "remoteControlAtStartup": true,
   "agentPushNotifEnabled": true,
   "skipAutoPermissionPrompt": true

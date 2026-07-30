@@ -6,8 +6,10 @@ rem ------------------------------
   rem mkdir .claude
   if not exist "%USERPROFILE%\.claude" ( mkdir "%USERPROFILE%\.claude" )
 
-  rem mklink settings.json
-  call :MKLINK .\claude\settings.json .claude\settings.json
+  rem copy settings.json (base をテンプレートとして初回のみコピー。jq が無いため merge はしない)
+  rem 旧 symlink が残っていたら削除して実体ファイル化する
+  dir /a:l "%USERPROFILE%\.claude\settings.json" >nul 2>&1 && del "%USERPROFILE%\.claude\settings.json"
+  call :COPY_NOT_EXISTS .\claude\settings.base.json .claude\settings.json
 
   rem mklink CLAUDE.md
   call :MKLINK .\claude\CLAUDE.md .claude\CLAUDE.md
