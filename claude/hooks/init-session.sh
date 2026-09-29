@@ -5,6 +5,8 @@
 # 1. PID→session_id マッピングを保存（tmux等の外部ツール参照用）
 # 2. compact時にactive planの内容をコンテキストに注入
 #
+# 設計思想: dotfiles/claude/docs/plan-system-design.md を読んでから変更すること。
+#
 set -euo pipefail
 
 INPUT=$(cat)
@@ -22,6 +24,8 @@ if [[ -n "$SESSION_ID" ]]; then
 fi
 # 24h超の古いファイルをcleanup
 find "$SESSION_DIR" -type f -mmin +1440 -delete 2>/dev/null || true
+# 7日超のactive plan残骸をcleanup
+find "$ACTIVE_DIR" -type f -mtime +7 -delete 2>/dev/null || true
 
 # --- worktree cleanup (残骸検出・削除) ---
 # compact: セッション継続中のため対象外 / fork: 並行セッションの worktree を消すリスクがあるため対象外
@@ -82,4 +86,21 @@ if [ "$TRIGGER" = "compact" ]; then
 else
   echo "Session ID: ${SESSION_ID}"
   echo "To track your active plan, write the plan path to: $ACTIVE_DIR/${SESSION_ID}"
+
+  # --- plan INDEX 再生成 (検索型オンデマンド参照の索引) ---
+  "$HOME/.claude/hooks/plan-index.sh" || true
+
+  # --- 自分以外のセッションの active plan を表示 ---
+  for f in "$ACTIVE_DIR"/*; do
+    [ -f "$f" ] || continue
+    other_session_id=$(basename "$f")
+    [ "$other_session_id" = "$SESSION_ID" ] && continue
+    other_plan_path=$(cat "$f" 2>/dev/null || true)
+    [ -n "$other_plan_path" ] && echo "Other session active plan: ${other_plan_path}"
+  done
+
+  # --- plan INDEX への導線 ---
+  for index_file in "$PLANS_DIR"/INDEX.md "$PLANS_DIR"/*/INDEX.md; do
+    [ -f "$index_file" ] && echo "Plan index: ${index_file}"
+  done
 fi

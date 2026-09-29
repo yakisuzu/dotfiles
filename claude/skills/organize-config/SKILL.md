@@ -1,8 +1,7 @@
 ---
 name: organize-config
-description: 現在の repo の CLAUDE.md / rules / skills / hooks / scripts の配置を分析し、ベストプラクティスに基づく再編成を提案する。
+description: 新しい rule / skill / CLAUDE.md 追記・ガイダンスを書く前の配置先クイック判定 (個人の dotfiles か、チーム共有の plugin / repo か) を行う。rule や skill を作成・移動しようとする場面で自動適用される。また、現在の repo の CLAUDE.md / rules / skills / hooks / scripts の配置を分析し、ベストプラクティスに基づく再編成を提案する (audit / migrate / init は明示起動)。
 user-invocable: true
-disable-model-invocation: true
 allowed-tools: Read, Glob, Grep, Bash, Write, Edit, Agent
 argument-hint: "[audit|migrate|init] [team|personal]"
 ---
@@ -18,6 +17,18 @@ Claude Code の設定 (CLAUDE.md / rules / skills / hooks / scripts) を分析�
 - `/organize-config init [team|personal]` -- 新規リポジトリ向けの最小構成を生成する
 
 引数なしのデフォルトアクションは `audit`。第2引数なしの場合のモードは下記 Step 0 で判定する。
+
+## 新規 guidance の配置先クイック判定 (audit 不要)
+
+新しい rule / skill / CLAUDE.md 追記・ガイダンスを書く前に、フル audit を回さずこの判定だけを必ず適用する:
+
+1. **誰に効かせたいか** を最初に確認する
+   - 自分ひとり (個人の好み・個人ワークフロー) -> dotfiles (`~/.claude/` 配下の CLAUDE.md / rules / skills)
+   - チーム・組織 (規約・レビュー観点・提案作法・複数人が従うべき運用) -> チーム共有の場所へ。**dotfiles は他メンバーに配布されないため、チーム向け guidance を dotfiles に置くのは禁止**
+2. チーム共有の配置先は次で選ぶ
+   - 複数 repo / チーム横断で適用したい -> org plugin marketplace の該当 plugin (例: team-x)。plugin 内の skill 設計・命名は当該 plugin の meta skill (例: `team-x:meta-skill-writer`) があればそれに委譲する
+   - 特定 repo 固有 -> その repo の `.claude/` (CLAUDE.md / rules / skills)
+3. 形式は内容の性質で選ぶ: 常時適用したい行動規範 -> rule / CLAUDE.md、on-demand の手順・観点集 -> skill (Step 2 の配置場所テーブル参照)
 
 ### Modes
 

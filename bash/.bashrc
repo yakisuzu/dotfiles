@@ -71,6 +71,9 @@ function MACRC(){
   # ver固定をbrewよりも優先させる
   eval "$(anyenv init -)"
 
+  # direnv
+  eval "$(direnv hook bash)"
+
   # coursier
   export "PATH=$HOME/Library/Application Support/Coursier/bin:$PATH"
 
