@@ -6,7 +6,7 @@ function LINK_OVERRIDE(){
   SRC_PATH="$1"
   DEST_PATH="$2"
 
-  if [ -L "$DEST_PATH" ]; then
+  if [ -L "$DEST_PATH" ] || [ -f "$DEST_PATH" ]; then
     rm "$DEST_PATH"
     echo "rm $DEST_PATH"
   elif [ -d "$DEST_PATH" ]; then
@@ -98,6 +98,11 @@ LINK_OVERRIDE "$PWD/claude/hooks" "$HOME/.claude/hooks"
 LINK_OVERRIDE "$PWD/claude/rules" "$HOME/.claude/rules"
 LINK_OVERRIDE "$PWD/claude/skills" "$HOME/.claude/skills"
 COPY_NOT_EXISTS "$PWD/claude/CLAUDE.local.md" "$HOME/.claude/CLAUDE.local.md"
+
+echo --------------------
+echo init codex
+mkdir -p "$HOME/.codex"
+LINK_OVERRIDE "$PWD/codex/personal.config.toml" "$HOME/.codex/personal.config.toml"
 
 unset LINK_OVERRIDE
 unset MERGE_JSON

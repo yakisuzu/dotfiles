@@ -139,6 +139,14 @@ PS1RC && unset PS1RC
 alias lsa='ls -lah'
 alias vi='vim -u NONE'
 
+function codex(){
+  if [[ "$1" == "--profile" || "$1" == "exec" && "$2" == "--profile" ]]; then
+    command codex "$@"
+  else
+    command codex --profile personal "$@"
+  fi
+}
+
 case "$OS_NAME" in
   "Darwin" ) MACRC && unset MACRC ;;
   "MSYS_NT" | "MINGW_NT" ) WINRC && unset WINRC ;;

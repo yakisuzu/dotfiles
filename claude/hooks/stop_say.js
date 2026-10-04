@@ -30,6 +30,11 @@ process.stdin.on('data', (chunk) => {
 });
 
 process.stdin.on('end', () => {
+  if (process.env.CLAUDE_SAY_ENABLED !== 'true') {
+    log('Speech disabled by CLAUDE_SAY_ENABLED');
+    return;
+  }
+
   try {
     log(`Total input data: ${inputData.length} bytes`);
     const input = JSON.parse(inputData);
