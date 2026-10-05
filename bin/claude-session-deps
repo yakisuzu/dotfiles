@@ -1,0 +1,524 @@
+#!/bin/bash
+#
+# claude-session-deps - Claude の session 依存表示
+#   複数 Claude Code session の一覧と依存関係 (PR待ち/他session待ち/remote待ち) を
+#   graph (ブラウザ) で表示する。console 向けの table/popup 表示は廃止済み
+#   (2026-10-05, ユーザー判断で graph に一本化)。
+#
+# 設計: dotfiles/claude/docs/plan-system-design.md と ~/.claude/plans/plan-claude-session-deps.md
+#       (Step 2) を参照。依存の実体は ~/.claude/plans/.deps/{session_id} (JSON Lines)。
+#
+# Usage:
+#   claude-session-deps                          graph と同じ (既定サブコマンド)
+#   claude-session-deps json                     join 結果を JSON で出す (graph-data.mjs が内部で使う。
+#                                                 artifact / statusline 連携にも使える)
+#   claude-session-deps add <type> <target> [note...]
+#                                                 現在 session に依存を追加 (type: pr|session|remote)
+#                                                 pr の target は "<org>/<repo>#<number>" 形式
+#   claude-session-deps rm <type> <target>       現在 session から該当の依存を削除
+#   claude-session-deps graph [--interval N] [--no-open]
+#                                                 session を起点に GitHub 上の cross-reference と
+#                                                 PR 本文を辿って1ホップ先の PR/issue を自動発見し、
+#                                                 依存関係を階層レイアウトの図 (ノード+矢印) で
+#                                                 ~/.cache/claude-session-deps/graph/index.html に生成、
+#                                                 既定のブラウザで開く。このプロセス自身がそのまま
+#                                                 N 秒 (既定5秒) ごとに data.js を再生成するループになり、
+#                                                 フォアグラウンドで常駐する。Ctrl-C で終了すれば
+#                                                 プロセスも即座に終わる (バックグラウンド常駐はしない)
+#                                                 (PR はクリックで GitHub を開く、Node.js 必須)
+#   claude-session-deps graph stop                旧版 (2026-10-05 以前) が残した切り離し型の
+#                                                 refresh プロセスが万一残っていた場合に停止する
+#
+# 既知の制約:
+#   - transcript (~/.claude/projects/*/*.jsonl) の pr-link / ai-title レコードは非公式フォーマット。
+#     無い場合は単に "-" 表示に落ちるだけで、スクリプトは壊れない。
+#   - .deps は手動 (または /delegate 経由で将来) 追記する前提。自動では消えない
+#     (「PR は merged だが本人はまだ rebase していない」を見せたいため)。
+#   - graph の自動更新は「同じ page が開いたまま data.js だけ書き換わり、ページ側が
+#     script タグを定期的に差し替えて再描画する」方式 (meta refresh ではない)。サーバは立てない。
+#   - graph はフォアグラウンドで動き続ける (`top`/`tail -f` と同じ感覚)。別 window/pane や
+#     `&` で動かしたい場合は呼び出し側 (tmux window, シェルジョブ制御) に任せる設計で、
+#     このスクリプト自身はバックグラウンド化の面倒を見ない。
+#   - graph の依存発見は GitHub cross-reference + 本文の正規表現走査によるベストエフォートで、
+#     100% の精度は無い。誤検出は ~/.claude/plans/.deps-ignore に "owner/repo#N" を1行書けば抑制できる
+
+set -euo pipefail
+
+# 自分自身の絶対パス (watch ループや popup から再実行するのに使う。symlink/相対パス起動でも崩れない)
+SCRIPT_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
+
+CLAUDE_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
+PLANS_DIR="$CLAUDE_DIR/plans"
+DEPS_DIR="$PLANS_DIR/.deps"
+ACTIVE_DIR="$PLANS_DIR/.active"
+SESSIONS_DIR="$CLAUDE_DIR/sessions"
+PROJECTS_DIR="$CLAUDE_DIR/projects"
+CACHE_BASE="${XDG_CACHE_HOME:-$HOME/.cache}/claude-session-deps"
+CACHE_DIR="$CACHE_BASE/pr"
+CACHE_TTL=60
+GRAPH_DIR="$CACHE_BASE/graph"
+GRAPH_HTML="$GRAPH_DIR/index.html"
+WATCH_PID_FILE="$GRAPH_DIR/watch.pid"
+WATCH_INTERVAL_FILE="$GRAPH_DIR/watch.interval"
+DEFAULT_GRAPH_INTERVAL=5
+
+mkdir -p "$DEPS_DIR" "$CACHE_DIR" "$GRAPH_DIR"
+
+# ---------------------------------------------------------------------------
+# 現在 session の特定 (add/rm 用)
+# ---------------------------------------------------------------------------
+current_session_id() {
+  if [ -n "${CLAUDE_CODE_SESSION_ID:-}" ]; then
+    echo "$CLAUDE_CODE_SESSION_ID"
+    return 0
+  fi
+  # fallback: PPID から ~/.claude/plans/.sessions/<ppid> を辿る (init-session.sh が書く)
+  local f="$PLANS_DIR/.sessions/$PPID"
+  if [ -f "$f" ]; then
+    cat "$f"
+    return 0
+  fi
+  echo "claude-session-deps: CLAUDE_CODE_SESSION_ID が無く、現在の session を特定できません" >&2
+  return 1
+}
+
+# ---------------------------------------------------------------------------
+# PR 状態取得 (60秒キャッシュ)。gh 未認証・PR不存在時は state=UNKNOWN を返す。
+# ---------------------------------------------------------------------------
+pr_status_json() {
+  local repo="$1" number="$2"
+  local key="${repo//\//_}_${number}"
+  local cache_file="$CACHE_DIR/$key.json"
+  # mtime を数値で取るのは stat の BSD/GNU 方言差 (-f vs -c) で壊れやすいため使わない。
+  # find -mmin で「CACHE_TTL 秒以内に更新されたか」を直接判定する (分単位の近似で十分)。
+  local ttl_min=$(( (CACHE_TTL + 59) / 60 ))
+  if [ -f "$cache_file" ] && find "$cache_file" -mmin "-${ttl_min}" -print -quit 2>/dev/null | grep -q .; then
+    cat "$cache_file"
+    return 0
+  fi
+  if gh pr view "$number" -R "$repo" --json state,isDraft,mergeable,statusCheckRollup >"$cache_file.tmp" 2>/dev/null; then
+    mv "$cache_file.tmp" "$cache_file"
+    cat "$cache_file"
+  else
+    rm -f "$cache_file.tmp"
+    echo '{"state":"UNKNOWN"}'
+  fi
+}
+
+pr_status_class() {
+  case "$1" in
+    merged|open) echo "ok" ;;
+    draft|closed) echo "warn" ;;
+    CI✗|conflict) echo "bad" ;;
+    *) echo "unknown" ;;
+  esac
+}
+
+pr_status_short() {
+  local json="$1"
+  jq -r '
+    if .state == "MERGED" then "merged"
+    elif .state == "CLOSED" then "closed"
+    elif .state == "UNKNOWN" then "unknown"
+    elif .isDraft then "draft"
+    else
+      ([.statusCheckRollup[]?.conclusion, .statusCheckRollup[]?.state]
+        | map(select(. == "FAILURE" or . == "failure")) | length) as $fail
+      | if $fail > 0 then "CI✗"
+        elif .mergeable == "CONFLICTING" then "conflict"
+        else "open"
+        end
+    end
+  ' <<<"$json" 2>/dev/null || echo "unknown"
+}
+
+# ---------------------------------------------------------------------------
+# 経過時間の簡易表示 (ISO8601 -> "3h" 等)。GNU date / BSD date 両対応。
+# ---------------------------------------------------------------------------
+elapsed_since() {
+  local iso="$1" now epoch diff
+  now=$(date +%s)
+  epoch=$(date -d "$iso" +%s 2>/dev/null || date -j -f "%Y-%m-%dT%H:%M:%SZ" "$iso" +%s 2>/dev/null || echo "$now")
+  diff=$((now - epoch))
+  if [ "$diff" -lt 60 ]; then echo "${diff}s"
+  elif [ "$diff" -lt 3600 ]; then echo "$((diff / 60))m"
+  elif [ "$diff" -lt 86400 ]; then echo "$((diff / 3600))h"
+  else echo "$((diff / 86400))d"
+  fi
+}
+
+# ---------------------------------------------------------------------------
+# 1件の依存 (.deps の1行) を構造化オブジェクトに解決する。
+# {type, label, status_class(ok|warn|bad|unknown), url, target}
+# table 表示の "waiting" 文字列と、graph 表示のノード/矢印の両方がこれを元にする。
+# ---------------------------------------------------------------------------
+resolve_dep_json() {
+  local dep="$1" live_json="$2"
+  local type
+  type=$(jq -r '.type // empty' <<<"$dep")
+  case "$type" in
+    pr)
+      local repo number pj short cls url
+      repo=$(jq -r '.repo' <<<"$dep")
+      number=$(jq -r '.number' <<<"$dep")
+      pj=$(pr_status_json "$repo" "$number")
+      short=$(pr_status_short "$pj")
+      cls=$(pr_status_class "$short")
+      url="https://github.com/${repo}/pull/${number}"
+      jq -nc --arg label "pr#${number} (${short})" --arg cls "$cls" --arg url "$url" \
+        '{type:"pr", label:$label, status_class:$cls, url:$url, target:$url}'
+      ;;
+    session)
+      local target found cls
+      target=$(jq -r '.name' <<<"$dep")
+      found=$(jq -r --arg n "$target" '.[] | select(.name==$n) | (.status // .state // "?")' <<<"$live_json" | head -1)
+      if [ -n "$found" ]; then
+        case "$found" in
+          busy|working) cls="ok" ;;
+          *) cls="warn" ;;
+        esac
+        jq -nc --arg label "@${target} (${found})" --arg cls "$cls" --arg t "$target" \
+          '{type:"session", label:$label, status_class:$cls, url:"", target:$t}'
+      else
+        jq -nc --arg label "@${target} (exited?)" --arg t "$target" \
+          '{type:"session", label:$label, status_class:"bad", url:"", target:$t}'
+      fi
+      ;;
+    remote)
+      local target since label
+      target=$(jq -r '.name' <<<"$dep")
+      since=$(jq -r '.since // empty' <<<"$dep")
+      if [ -n "$since" ]; then
+        label="remote:${target} ($(elapsed_since "$since"))"
+      else
+        label="remote:${target}"
+      fi
+      jq -nc --arg label "$label" --arg t "remote:${target}" \
+        '{type:"remote", label:$label, status_class:"unknown", url:"", target:$t}'
+      ;;
+    *)
+      jq -nc '{type:"unknown", label:"?", status_class:"unknown", url:"", target:"?"}'
+      ;;
+  esac
+}
+
+# ---------------------------------------------------------------------------
+# 「誰が自分を待っているか」の逆引きマップを1回のスキャンで作る。
+# 出力: 1行ごとに "<待たれている側のsession名>\t<待っている側のsession名>"
+# ---------------------------------------------------------------------------
+build_waited_by_tsv() {
+  local live_json="$1"
+  local f sid waiter_name dep type target
+  for f in "$DEPS_DIR"/*; do
+    [ -f "$f" ] || continue
+    sid=$(basename "$f")
+    waiter_name=$(jq -r --arg s "$sid" '.[] | select(.sessionId==$s) | .name' <<<"$live_json" | head -1)
+    if [ -z "$waiter_name" ]; then
+      waiter_name="(${sid:0:8})"
+    fi
+    while IFS= read -r dep; do
+      if [ -z "$dep" ]; then
+        continue
+      fi
+      type=$(jq -r '.type // empty' <<<"$dep" 2>/dev/null) || continue
+      if [ "$type" = "session" ]; then
+        target=$(jq -r '.name' <<<"$dep")
+        printf '%s\t%s\n' "$target" "$waiter_name"
+      fi
+    done <"$f"
+  done
+}
+
+# ---------------------------------------------------------------------------
+# join 本体。live session それぞれについて plan / PR / waiting / waited-by を解決し
+# JSON 配列で返す。
+# ---------------------------------------------------------------------------
+build_entries() {
+  local live_json waited_by_tsv
+  live_json=$(claude agents --json)
+  waited_by_tsv=$(build_waited_by_tsv "$live_json")
+
+  echo "$live_json" | jq -c '.[]' | while IFS= read -r sess; do
+    local sessionId name cwd status pid
+    sessionId=$(jq -r '.sessionId' <<<"$sess")
+    name=$(jq -r '.name' <<<"$sess")
+    cwd=$(jq -r '.cwd' <<<"$sess")
+    status=$(jq -r '.status // .state // "?"' <<<"$sess")
+    pid=$(jq -r '.pid // empty' <<<"$sess")
+
+    # tmux window target
+    local tmux_target="-"
+    if [ -n "$pid" ] && [ -f "$SESSIONS_DIR/$pid.json" ]; then
+      tmux_target=$(jq -r '.tmux // "-"' "$SESSIONS_DIR/$pid.json" 2>/dev/null) || tmux_target="-"
+    fi
+
+    # active plan
+    local plan="-"
+    if [ -f "$ACTIVE_DIR/$sessionId" ]; then
+      local p
+      p=$(cat "$ACTIVE_DIR/$sessionId")
+      plan=$(basename "$p" .md | sed -E 's/^(plan|feature|research)-//')
+    fi
+
+    # transcript から pr-link / ai-title の最終行を拾う (非公式フォーマット、無くても壊れない)
+    local transcript pr_repo="" pr_number="" title="-"
+    transcript=$(find "$PROJECTS_DIR" -maxdepth 2 -name "${sessionId}.jsonl" -print -quit 2>/dev/null || true)
+    if [ -n "$transcript" ]; then
+      local pr_line title_line
+      # grep が no-match (exit 1) でも pipefail + set -e で落ちないよう `|| true` を付ける
+      pr_line=$(grep -h '"type":"pr-link"' "$transcript" 2>/dev/null | tail -1) || true
+      if [ -n "$pr_line" ]; then
+        pr_repo=$(jq -r '.prRepository' <<<"$pr_line")
+        pr_number=$(jq -r '.prNumber' <<<"$pr_line")
+      fi
+      title_line=$(grep -h '"type":"ai-title"' "$transcript" 2>/dev/null | tail -1) || true
+      if [ -n "$title_line" ]; then
+        title=$(jq -r '.aiTitle' <<<"$title_line")
+      fi
+    fi
+
+    local pr_display="-" pr_class="" pr_url=""
+    if [ -n "$pr_repo" ]; then
+      local pj pr_short
+      pj=$(pr_status_json "$pr_repo" "$pr_number")
+      pr_short=$(pr_status_short "$pj")
+      pr_class=$(pr_status_class "$pr_short")
+      pr_url="https://github.com/${pr_repo}/pull/${pr_number}"
+      pr_display="#${pr_number}:${pr_short}"
+    fi
+
+    # waiting: このsessionの .deps を構造化解決 (deps_detail) し、table 用の文字列もそこから作る
+    local waiting="-"
+    local deps_detail_json="[]"
+    if [ -f "$DEPS_DIR/$sessionId" ] && [ -s "$DEPS_DIR/$sessionId" ]; then
+      local dep_objs=()
+      while IFS= read -r dep; do
+        if [ -z "$dep" ]; then
+          continue
+        fi
+        dep_objs+=("$(resolve_dep_json "$dep" "$live_json")")
+      done <"$DEPS_DIR/$sessionId"
+      if [ "${#dep_objs[@]}" -gt 0 ]; then
+        deps_detail_json=$(printf '%s\n' "${dep_objs[@]}" | jq -s '.')
+        waiting=$(jq -r '[.[].label] | join(",")' <<<"$deps_detail_json")
+      fi
+    fi
+
+    # waited-by: 逆引きマップから自分宛の行を拾う
+    local waited_by="-"
+    local wb
+    wb=$(awk -F'\t' -v n="$name" '$1==n{print $2}' <<<"$waited_by_tsv" | paste -sd, - 2>/dev/null)
+    if [ -n "$wb" ]; then
+      waited_by="$wb"
+    fi
+
+    jq -n \
+      --arg name "$name" --arg tmux "$tmux_target" --arg status "$status" \
+      --arg plan "$plan" --arg pr "$pr_display" --arg pr_class "$pr_class" --arg pr_url "$pr_url" \
+      --arg title "$title" \
+      --arg waiting "$waiting" --arg waited_by "$waited_by" \
+      --argjson deps_detail "$deps_detail_json" \
+      --arg sessionId "$sessionId" --arg cwd "$cwd" \
+      '{name:$name, tmux:$tmux, status:$status, plan:$plan, pr:$pr, pr_class:$pr_class, pr_url:$pr_url,
+        title:$title, waiting:$waiting, waited_by:$waited_by, deps_detail:$deps_detail,
+        sessionId:$sessionId, cwd:$cwd}'
+  done | jq -s '.'
+}
+
+cmd_json() {
+  build_entries
+}
+
+# ---------------------------------------------------------------------------
+# グラフィカル表示 (HTML + SVG + 依存の自動検出)。
+#
+# v1 (このコメント上部に残っていた実装) は `.deps` の手動宣言しか描けず、
+# 「依存関係を watch したい」という要件を満たしていなかった (詳細は
+# ~/.claude/plans/plan-claude-session-deps.md の「再分析と再設計 (v2)」参照)。
+# v2 はデータの組み立て (GitHub cross-reference の発見・方向判定・.deps overlay・
+# 変化ログ) を Node (claude-session-deps.graph-data.mjs) に任せ、このファイルは
+# watch ループの起動・停止という「プロセス管理」だけを担当する。
+# ---------------------------------------------------------------------------
+GRAPH_DATA_SCRIPT="$(dirname "$SCRIPT_PATH")/claude-session-deps.graph-data.mjs"
+
+run_graph_data() {
+  local mode="$1" interval="$2"
+  if ! command -v node >/dev/null 2>&1; then
+    echo "claude-session-deps: node が見つかりません (graph サブコマンドには Node.js が必要です)" >&2
+    return 1
+  fi
+  if [ ! -f "$GRAPH_DATA_SCRIPT" ]; then
+    echo "claude-session-deps: グラフ生成スクリプトが見つかりません ($GRAPH_DATA_SCRIPT)" >&2
+    return 1
+  fi
+  node "$GRAPH_DATA_SCRIPT" --script "$SCRIPT_PATH" --mode "$mode" --interval "$interval"
+}
+
+# 2026-10-05 以前は nohup+disown でバックグラウンドに切り離していたが、
+# 「コンソールを占有して終了したらプロセスも終わる」単純さを優先してフォアグラウンド
+# 常駐に変更した。is_watch_running/cmd_graph_stop は、その頃の切り離し型プロセスが
+# まだ残っている場合に掃除するためだけに残す (新規にバックグラウンド起動はしない)。
+is_watch_running() {
+  if [ ! -f "$WATCH_PID_FILE" ]; then
+    return 1
+  fi
+  local pid
+  pid=$(cat "$WATCH_PID_FILE" 2>/dev/null) || return 1
+  if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
+    return 0
+  fi
+  return 1
+}
+
+cmd_graph_stop() {
+  if is_watch_running; then
+    local pid
+    pid=$(cat "$WATCH_PID_FILE")
+    kill "$pid" 2>/dev/null || true
+    rm -f "$WATCH_PID_FILE" "$WATCH_INTERVAL_FILE"
+    echo "古い (切り離し型) refresh プロセスを停止しました (pid $pid)"
+  else
+    rm -f "$WATCH_PID_FILE" "$WATCH_INTERVAL_FILE"
+    echo "切り離し型の refresh プロセスは残っていません"
+  fi
+}
+
+cmd_graph() {
+  local interval="$DEFAULT_GRAPH_INTERVAL"
+  local do_open=1
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      stop)
+        cmd_graph_stop
+        return $?
+        ;;
+      --interval)
+        interval="${2:?--interval には秒数が必要です}"
+        shift 2
+        ;;
+      --no-open)
+        do_open=0
+        shift
+        ;;
+      *)
+        echo "claude-session-deps: graph の不明な引数 '$1'" >&2
+        return 1
+        ;;
+    esac
+  done
+  case "$interval" in
+    ''|*[!0-9]*)
+      echo "claude-session-deps: --interval は整数秒で指定してください (指定値: $interval)" >&2
+      return 1
+      ;;
+  esac
+
+  # 旧バージョンの切り離し型プロセスが残っていたら、二重に data.js を書き換えない
+  # よう先に止める
+  if is_watch_running; then
+    echo "旧バージョンの refresh プロセスが残っていたため停止します"
+    cmd_graph_stop
+  fi
+
+  run_graph_data shell "$interval" >/dev/null
+  echo "グラフを書き出しました: $GRAPH_HTML"
+
+  if [ "$do_open" -eq 1 ]; then
+    if command -v open >/dev/null 2>&1; then
+      open "$GRAPH_HTML"
+    else
+      echo "claude-session-deps: 'open' コマンドが無いため自動で開けません。$GRAPH_HTML を開いてください" >&2
+    fi
+  fi
+
+  echo "${interval}秒ごとに data.js を再生成します。Ctrl-C で終了します (このプロセスがそのまま refresh ループです)"
+  trap 'echo; echo "停止しました"; exit 0' INT TERM
+  while true; do
+    sleep "$interval"
+    run_graph_data data "$interval" >/dev/null
+  done
+}
+
+cmd_add() {
+  local type="${1:?type (pr|session|remote) が必要です}" target="${2:?target が必要です}"
+  shift 2 || true
+  local note="$*"
+  local sid
+  sid=$(current_session_id) || return 1
+  local since
+  since=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+  local line
+  case "$type" in
+    pr)
+      local repo number
+      repo="${target%#*}"
+      number="${target#*#}"
+      line=$(jq -nc --arg repo "$repo" --arg number "$number" --arg note "$note" --arg since "$since" \
+        '{type:"pr", repo:$repo, number:($number|tonumber), note:$note, since:$since}')
+      ;;
+    session|remote)
+      line=$(jq -nc --arg type "$type" --arg name "$target" --arg note "$note" --arg since "$since" \
+        '{type:$type, name:$name, note:$note, since:$since}')
+      ;;
+    *)
+      echo "claude-session-deps: type は pr|session|remote のいずれかです" >&2
+      return 1
+      ;;
+  esac
+  echo "$line" >>"$DEPS_DIR/$sid"
+  echo "追加しました: $line"
+}
+
+cmd_rm() {
+  local type="${1:?type が必要です}" target="${2:?target が必要です}"
+  local sid
+  sid=$(current_session_id) || return 1
+  local f="$DEPS_DIR/$sid"
+  [ -f "$f" ] || { echo "claude-session-deps: 依存がありません ($f)"; return 0; }
+  local tmp
+  tmp=$(mktemp)
+  # 削除対象に「一致する」行だけを除外して残す (select は KEEP する行の条件であることに注意)。
+  jq -c --arg type "$type" --arg target "$target" \
+    'select(
+      if .type != $type then true
+      elif .type == "pr" then
+        (($target|split("#")[0]) != .repo) or ((($target|split("#")[1])|tonumber) != .number)
+      else
+        .name != $target
+      end
+    )' "$f" >"$tmp" 2>/dev/null || true
+  mv "$tmp" "$f"
+  echo "削除しました (残り $(wc -l <"$f" | tr -d ' ') 件)"
+}
+
+main() {
+  # $1 が既知のサブコマンド名の時だけ消費する。それ以外 (引数無し、--interval/--no-open
+  # のようなフラグ、graph 自身のサブコマンドである stop) は既定の graph に素通しする
+  # (例: `claude-session-deps --no-open` や `claude-session-deps stop` がそのまま動く)。
+  local cmd="graph"
+  if [ $# -gt 0 ]; then
+    case "$1" in
+      json|graph|add|rm|-h|--help|help)
+        cmd="$1"
+        shift
+        ;;
+    esac
+  fi
+  case "$cmd" in
+    json) cmd_json ;;
+    graph) cmd_graph "$@" ;;
+    add) cmd_add "$@" ;;
+    rm) cmd_rm "$@" ;;
+    -h|--help|help)
+      # 先頭の shebang を除くコメント行を、最初の非コメント行まで表示する
+      # (ヘッダに行を足し引きしても壊れないよう、固定行番号には依存しない)
+      awk '/^#!/{next} /^#/{sub(/^# ?/,""); print; next} {exit}' "$SCRIPT_PATH"
+      ;;
+    *)
+      echo "claude-session-deps: 不明なサブコマンド '$cmd'" >&2
+      exit 1
+      ;;
+  esac
+}
+
+main "$@"

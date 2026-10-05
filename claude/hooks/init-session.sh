@@ -16,7 +16,9 @@ TRIGGER=$(echo "$INPUT" | jq -r '.trigger // "new"')
 PLANS_DIR="$HOME/.claude/plans"
 SESSION_DIR="$PLANS_DIR/.sessions"
 ACTIVE_DIR="$PLANS_DIR/.active"
-mkdir -p "$SESSION_DIR" "$ACTIVE_DIR"
+DEPS_DIR="$PLANS_DIR/.deps"
+SESSIONS_REGISTRY_DIR="$HOME/.claude/sessions"
+mkdir -p "$SESSION_DIR" "$ACTIVE_DIR" "$DEPS_DIR"
 
 # --- session_id をPIDベースで記録（外部ツール参照用） ---
 if [[ -n "$SESSION_ID" ]]; then
@@ -26,6 +28,8 @@ fi
 find "$SESSION_DIR" -type f -mmin +1440 -delete 2>/dev/null || true
 # 7日超のactive plan残骸をcleanup
 find "$ACTIVE_DIR" -type f -mtime +7 -delete 2>/dev/null || true
+# 7日超のsession依存(.deps)残骸をcleanup (claude-session-deps が宣言するファイル)
+find "$DEPS_DIR" -type f -mtime +7 -delete 2>/dev/null || true
 
 # --- worktree cleanup (残骸検出・削除) ---
 # compact: セッション継続中のため対象外 / fork: 並行セッションの worktree を消すリスクがあるため対象外
@@ -103,4 +107,36 @@ else
   for index_file in "$PLANS_DIR"/INDEX.md "$PLANS_DIR"/*/INDEX.md; do
     [ -f "$index_file" ] && echo "Plan index: ${index_file}"
   done
+
+  # --- 自分を待っている session がいれば通知 (新規起動時のみ。resume/clear では毎回出さない) ---
+  if [ "$TRIGGER" = "startup" ]; then
+    MY_NAME=""
+    if [ -f "$SESSIONS_REGISTRY_DIR/$PPID.json" ]; then
+      MY_NAME=$(jq -r '.name // empty' "$SESSIONS_REGISTRY_DIR/$PPID.json" 2>/dev/null) || MY_NAME=""
+    fi
+    if [ -n "$MY_NAME" ]; then
+      WAITERS=()
+      for f in "$DEPS_DIR"/*; do
+        if [ ! -f "$f" ]; then
+          continue
+        fi
+        while IFS= read -r dep; do
+          if [ -z "$dep" ]; then
+            continue
+          fi
+          dep_type=$(jq -r '.type // empty' <<<"$dep" 2>/dev/null) || continue
+          if [ "$dep_type" = "session" ]; then
+            dep_name=$(jq -r '.name // empty' <<<"$dep" 2>/dev/null) || continue
+            if [ "$dep_name" = "$MY_NAME" ]; then
+              waiter_sid=$(basename "$f")
+              WAITERS+=("${waiter_sid:0:8}")
+            fi
+          fi
+        done <"$f"
+      done
+      if [ "${#WAITERS[@]}" -gt 0 ]; then
+        echo "Waited by: $(IFS=,; echo "${WAITERS[*]}") が、この session (name: ${MY_NAME}) の完了を待っています。詳細は \`claude-session-deps\` を参照"
+      fi
+    fi
+  fi
 fi

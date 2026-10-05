@@ -1,0 +1,122 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Claude session 依存表示</title>
+<style>
+  :root {
+    --bg: #f7f7f8;
+    --fg: #1b1b1f;
+    --muted: #6b6b76;
+    --card-bg: #ffffff;
+    --card-border: #d8d8e0;
+    --ok: #1a9850;
+    --warn: #c98a1a;
+    --bad: #c23b3b;
+    --merged: #7c4fd1;
+    --unknown: #8a8a96;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #16161a;
+      --fg: #e7e7ea;
+      --muted: #9a9aa4;
+      --card-bg: #1f1f24;
+      --card-border: #34343c;
+      --ok: #4cc47f;
+      --warn: #e0a83f;
+      --bad: #e4615f;
+      --merged: #a77ef0;
+      --unknown: #a7a7b2;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 16px;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size: 13px;
+  }
+  header { margin-bottom: 12px; }
+  header h1 { font-size: 16px; margin: 0 0 4px; }
+  #meta { color: var(--muted); font-size: 12px; }
+  #wrap { display: flex; gap: 24px; align-items: flex-start; }
+  #board-outer { overflow: auto; border: 1px solid var(--card-border); border-radius: 8px; padding: 8px; flex: 1 1 auto; min-width: 0; }
+  #board { position: relative; }
+  #edges { position: absolute; top: 0; left: 0; z-index: 0; pointer-events: none; overflow: visible; }
+  .node-wrap { position: absolute; z-index: 1; width: 220px; }
+  .box {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 8px;
+    padding: 8px 10px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+  }
+  .box.session { border-left: 4px solid var(--unknown); }
+  .box.pr.ok { border-left: 4px solid var(--ok); }
+  .box.pr.warn { border-left: 4px solid var(--warn); }
+  .box.pr.bad { border-left: 4px solid var(--bad); }
+  .box.pr.merged { border-left: 4px solid var(--merged); }
+  .box.issue { border-left: 4px dashed var(--unknown); opacity: 0.85; }
+  .box.remote { border-left: 4px solid var(--unknown); opacity: 0.9; }
+  .row { display: flex; align-items: center; gap: 6px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex: none; }
+  .dot-ok { background: var(--ok); }
+  .dot-idle { background: var(--unknown); }
+  .dot-bad { background: var(--bad); }
+  .dot-unknown { background: var(--muted); }
+  .muted { color: var(--muted); font-size: 11px; margin-top: 2px; }
+  .ellipsis { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .title { font-weight: 600; text-decoration: none; color: inherit; display: block; }
+  a.title:hover { text-decoration: underline; }
+  .ci { font-weight: 700; font-size: 12px; line-height: 1; flex: none; }
+  .ci-ok { color: var(--ok); }
+  .ci-bad { color: var(--bad); }
+  .ci-warn { color: var(--warn); }
+  .ci-unknown { color: var(--unknown); }
+  .owners { margin-top: 4px; display: flex; flex-wrap: wrap; gap: 4px; }
+  .owner { font-size: 10px; padding: 1px 6px; border-radius: 999px; border: 1px solid var(--card-border); color: var(--muted); }
+  .edge { fill: none; stroke-width: 1.6; }
+  .edge-ok { stroke: var(--ok); }
+  .edge-warn { stroke: var(--warn); }
+  .edge-bad { stroke: var(--bad); }
+  .edge-unknown { stroke: var(--unknown); }
+  .edge-undirected { stroke-dasharray: 4 3; }
+  .edge-pair { stroke-width: 2.2; }
+  .arrowhead-ok { fill: var(--ok); }
+  .arrowhead-warn { fill: var(--warn); }
+  .arrowhead-bad { fill: var(--bad); }
+  .arrowhead-unknown { fill: var(--unknown); }
+  #empty { color: var(--muted); padding: 24px 0; }
+  #changes-panel { width: 260px; flex: none; border: 1px solid var(--card-border); border-radius: 8px; padding: 10px; max-height: 70vh; overflow: auto; }
+  #changes-panel h2 { font-size: 12px; margin: 0 0 8px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+  .change-line { font-size: 11px; margin-bottom: 6px; line-height: 1.4; }
+  @media (max-width: 900px) {
+    #wrap { flex-direction: column; }
+    #changes-panel { width: 100%; max-height: 240px; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Claude session 依存表示</h1>
+  <div id="meta">読み込み中…</div>
+</header>
+<div id="wrap">
+  <div id="board-outer">
+    <div id="board">
+      <svg id="edges"></svg>
+    </div>
+    <div id="empty" hidden>live session がありません。</div>
+  </div>
+  <div id="changes-panel">
+    <h2>変化ログ</h2>
+    <div id="changes"><span class="muted">読み込み中…</span></div>
+  </div>
+</div>
+<script src="data.js"></script>
+<script src="graph.js"></script>
+</body>
+</html>

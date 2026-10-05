@@ -48,3 +48,14 @@
 - 遡及的に frontmatter を付与した古い plan は、status が機械的に `done` になっているだけで本文の実態と乖離している可能性がある。status だけを鵜呑みにせず、疑わしい場合は本文を確認する。
 - INDEX.md は生成物であり `~/.claude/plans/` 配下 (dotfiles の git 管理外) にあるため、git 管理していない。
 - `claude/rules/` 配下には長文の設計思想を置かない。rules は毎セッション無条件注入されるため、設計思想のような読む頻度の低い内容を置くと固定費が積み上がる。設計思想はこのドキュメント (`claude/docs/`) に置き、rules からは1行のポインタで参照する。
+
+## 7. `.deps/{session_id}` の役割
+
+- **決定**: session 間の依存 (PR 待ち / 他 session 待ち / remote 待ち) を `~/.claude/plans/.deps/{session_id}` に JSON Lines で宣言する。`.active/{session_id}` と並ぶ、session_id をキーにした追跡ファイル群の一つとして同じ場所・同じ掃除機構 (SessionEnd 削除、7日超残骸の SessionStart 掃除) に乗せる。
+- **理由**:
+  - `.active` と同じ設計を踏襲することで、新しい掃除機構を増やさずに済む (`cleanup-active-plan.sh` / `init-session.sh` の既存ループにファイル種別を1つ追加するだけ)。
+  - 依存の実体を session_id ファイルに持たせることで「誰が」「何を」待っているかを 1 session = 1 ファイルで表現でき、表示側 (`claude-session-deps`) は全ファイルを横断 grep するだけで join できる。
+  - 自動削除しない (`.active` と同じ思想): 「PR は merged だが本人はまだ rebase していない」のように、依存の解消判定と記録の削除判定を分離したいため。削除は本人セッションの判断 (`claude-session-deps rm`) または 7日超の残骸掃除に委ねる。
+- **`.active` との違い**: `.active` は「今どの plan を進めているか」という単一の状態 (ファイルの中身はパス 1 行) だが、`.deps` は「待っている対象の一覧」という複数件の追記型データ (JSON Lines) である。そのため `.active` は `cat` で読めば足りるが、`.deps` は `jq` で逐行パースする前提になっている。
+- **却下した代替案**: 依存を `.active` と同じファイルに混在させる (例えば active plan ファイルの frontmatter に depends_on を足す)。plan の有無と依存の有無はライフサイクルが別 (plan が無くても他 session 待ちはありうる) であり、1 ファイルに混在させると両方の読み書きロジックが絡み合うため却下。
+- **SessionStart での注入**: `startup` トリガーの時だけ「自分を待っている session がいるか」を 1 行注入する (`resume`/`clear`/`compact` では出さない)。resume の度に同じ通知を繰り返すと鬱陶しく、鮮度も怪しくなるため、新規起動のタイミングに限定した。自分の名前は `~/.claude/sessions/$PPID.json` (session registry、非公式フォーマット) から引く。見つからない場合は通知自体を静かにスキップする (新機能のために起動を失敗させない)。
