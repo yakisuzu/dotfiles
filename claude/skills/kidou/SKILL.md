@@ -3,6 +3,7 @@ name: kidou
 description: TODO (タスク) を claude-task のキューに積む。「あとでやる」「TODO に積んで」「タスク追加」など、今の session では着手せず別 session で処理したい依頼を受けたときに使う。どの session からでも呼べる。振り分け・起動は /bankai が行う。
 argument-hint: "[dir: <path>] [after: T-<n>,...] [p1|p2|p3] <依頼文>"
 allowed-tools: Bash(claude-task *)
+model: sonnet
 ---
 
 # Kidou Skill
@@ -34,3 +35,4 @@ allowed-tools: Bash(claude-task *)
    ```
    - 引数はシェルのクォートに注意 (依頼文に `"` や `$` が含まれる場合は heredoc で変数に入れてから渡す)
 5. **報告**: 1 行で `T-<n> を積みました (<repo or inbox>)` と返す。起動したいなら `/bankai` か `/delegate task: T-<n>` と添える
+6. **一覧表示**: 最後に `claude-task ls --table` の出力 (Markdown 表: タスク / session / 概要 / 状態) を **加工せずそのまま** 貼る。表は自分で組み立てない

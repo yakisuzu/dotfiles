@@ -1,13 +1,14 @@
 ---
 name: delegate
 description: 現在の tmux session 内に新しい window を開き、名前付きの Claude Code session を起動してプロンプトを渡す。別の作業を他 session に切り出したいとき、並行して進めたいサブタスクがあるときに使う。
-argument-hint: "[task: T-<n>] [dir: <path>] <渡したい指示文>"
+argument-hint: "[task: T-<n>] [dir: <path>] [model: <alias>] <渡したい指示文>"
 allowed-tools: Bash(tmux *), Bash(claude-task *)
+model: sonnet
 ---
 
 # Delegate Skill
 
-現在の tmux の中に新しい window を作り、そこで `claude --name <name> <prompt>` を起動する。新しい window は現在の session とは独立した Claude Code session になり、渡したプロンプトがその session の最初の発言として自動送信される。
+現在の tmux の中に新しい window を作り、そこで `claude --name <name> --model <model> <prompt>` を起動する。起動する session のモデルは既定で `sonnet` (`model:` で上書き可)。新しい window は現在の session とは独立した Claude Code session になり、渡したプロンプトがその session の最初の発言として自動送信される。
 
 このスキルが行うのは「別 window を起動してプロンプトを渡す」ことだけ。タスク管理 (`claude-task`) と紐付ける場合は `task:` を渡す。新 session には環境変数 `CLAUDE_TASK_ID` が渡り、SessionStart hook がタスクと session を自動で紐付ける (running 化)。自動起動の上限判定は呼び出し側 (`/bankai` の `claude-task next --auto`) の責務で、このスキルは上限を見ない (明示的な起動指示は上限を超えてよい)。
 
@@ -17,7 +18,8 @@ allowed-tools: Bash(tmux *), Bash(claude-task *)
 
 - `task: T-<n>` — 任意。`claude-task` のタスク ID。直後の 1 トークンを値として消費する。指定時は起動 dir とプロンプトを `claude-task launch-spec <id>` の出力で決める (自分で組み立てない)。`dir:` との併用は不可 (起動 dir は常に本体 repo のルート)。
 - `dir: <path>` — 任意。新 session の作業ディレクトリ。直後の 1 トークン (空白区切り) を値として消費する。省略時は現在の cwd。worktree を切ってから渡したい場合は、先に `/wt` で worktree を作成し、そのパスを `dir:` に指定する。
-- プロンプト本体 — `task:` / `dir:` として認識した部分を除いた残り全文 (前後どちらにあってもよい) をそのままプロンプトとして扱う。`prompt:` のようなキーワードは不要。
+- `model: <alias>` — 任意。起動する session のモデル (`sonnet` / `opus` / `fable` 等のエイリアスか正式名)。直後の 1 トークンを値として消費する。省略時は `sonnet`。ユーザーが「opus で」のように明示したときだけ変える。
+- プロンプト本体 — `task:` / `dir:` / `model:` として認識した部分を除いた残り全文 (前後どちらにあってもよい) をそのままプロンプトとして扱う。`prompt:` のようなキーワードは不要。
 
 name は受け付けない。window / session の名前は常に Steps 1 でプロンプトの内容から自動生成する。
 
@@ -57,7 +59,8 @@ name は受け付けない。window / session の名前は常に Steps 1 でプ�
    ```bash
    NAME_Q=$(printf %q "$NAME")
    PROMPT_Q=$(printf %q "$PROMPT")
-   CMD="claude --name $NAME_Q $PROMPT_Q"
+   MODEL_Q=$(printf %q "${MODEL:-sonnet}")
+   CMD="claude --name $NAME_Q --model $MODEL_Q $PROMPT_Q"
    # task: 無し
    tmux new-window -d -n "$NAME" -c "$DIR" "$CMD"
    # task: 有り (どちらか一方だけ実行する)。-e で task ID を渡し、SessionStart hook が claude-task link する
@@ -81,7 +84,7 @@ name は受け付けない。window / session の名前は常に Steps 1 でプ�
 
 7. **結果をユーザーに伝える**
 
-   - 起動した window 名 (自動生成したこと)、作業ディレクトリ、渡したプロンプトの要旨を簡潔に報告する。
+   - 起動した window 名 (自動生成したこと)、作業ディレクトリ、モデル、渡したプロンプトの要旨を簡潔に報告する。
    - 他 window への切替は `tmux select-window -t <name>` (このスキルでは自動では切り替えない)。
    - 完了通知が欲しい場合は `SendMessage` の `notify_when_idle: true` を該当 session 宛てに張る (`/bankai` 経由の起動では bankai 側が張る)。
 
