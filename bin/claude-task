@@ -1,0 +1,459 @@
+#!/usr/bin/env bash
+#
+# claude-task - Claude session をまたぐタスク管理 (/kidou で積み、/bankai で振り分ける)
+#
+# 状態の正は ~/.claude/plans/.tasks/<id>.json。書き込みはこのスクリプト経由のみ (スキーマと状態遷移を固定する)。
+# session の生死・返事待ち・ブロック中は保存せず、表示のたびに session registry とタスク間依存から導出する。
+# 設計: dotfiles/claude/docs/task-system-design.md
+#
+# Usage:
+#   claude-task add [--dir D] [--priority 1-3] [--blocked-by T-1,T-2] [--body TEXT] <title...>
+#                                    タスクを追加し ID を出力。dir 指定ありなら queued、無しなら inbox
+#   claude-task ls [--all] [--json] [--group G] [--repo R]
+#                                    状態別に一覧 (返事待ち/実行中/要確認/起動可能/ブロック中/inbox/タスク外 session)
+#   claude-task show <id>            タスクの JSON を表示
+#   claude-task set <id> key=value.. 変更可能キー: title dir priority blocked_by prs plan_topic status
+#                                    (blocked_by/prs はカンマ区切り。inbox に dir を入れると queued になる)
+#   claude-task log <id> <msg...>    ログ追記
+#   claude-task link <id> <session_id> [session_name]
+#                                    session と紐付けて running にする (SessionStart hook が呼ぶ)
+#   claude-task adopt <session名|session_id> [title...]
+#                                    タスク外の live session を running タスクとして取り込む
+#   claude-task done <id> / drop <id>
+#                                    完了 / 取り下げ。直後に起動可能になったタスクを表示
+#   claude-task next [--auto] [--json]
+#                                    起動可能タスク (queued かつ未ブロック) を priority → created 順に。
+#                                    --auto は自動起動の空き枠 (CLAUDE_TASK_MAX_RUNNING 既定6 - 生存中 running) 件まで。
+#                                    明示的な起動指示はこの上限に縛られない (上限は自動起動だけのゲート)
+#   claude-task launch-spec <id>     起動仕様を JSON で出力 {id, dir, worktree, prompt}。dir は本体 repo のルート、
+#                                    prompt には「起動後に EnterWorktree (name: task-<n>) で worktree を切る」指示を埋め込む
+#                                    (git 外の dir では worktree 指示なし)。/bankai・/delegate task: はこれをそのまま使う
+#   claude-task id-of-session <session_id>
+#                                    session に紐付くタスク ID を出力 (無ければ空)
+
+# jq フィルタ内の $var は jq 変数 (shell 展開させない) ため SC2016 は誤検知
+# shellcheck disable=SC2016
+
+set -euo pipefail
+
+CLAUDE_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
+TASKS_DIR="$CLAUDE_DIR/plans/.tasks"
+SESSIONS_DIR="$CLAUDE_DIR/sessions"
+LOCAL_MD="$CLAUDE_DIR/CLAUDE.local.md"
+SEQ_FILE="$TASKS_DIR/.seq"
+LOCK_DIR="$TASKS_DIR/.lock"
+MAX_RUNNING="${CLAUDE_TASK_MAX_RUNNING:-6}"
+
+mkdir -p "$TASKS_DIR"
+
+die() { echo "claude-task: $*" >&2; exit 1; }
+now() { date +%Y-%m-%dT%H:%M:%S%z; }
+
+# ---------------------------------------------------------------------------
+# 書き込みロック (mkdir はアトミック)。古いロック (60秒超) は残骸とみなして奪う
+# ---------------------------------------------------------------------------
+lock() {
+  local i=0
+  until mkdir "$LOCK_DIR" 2>/dev/null; do
+    if find "$LOCK_DIR" -maxdepth 0 -mmin +1 -print -quit 2>/dev/null | grep -q .; then
+      rmdir "$LOCK_DIR" 2>/dev/null || true
+      continue
+    fi
+    i=$((i + 1))
+    [ "$i" -gt 100 ] && die "ロックを取得できません: $LOCK_DIR"
+    sleep 0.1
+  done
+  trap 'rmdir "$LOCK_DIR" 2>/dev/null || true' EXIT
+}
+
+task_file() { echo "$TASKS_DIR/$1.json"; }
+
+require_task() {
+  [[ "$1" =~ ^T-[0-9]+$ ]] || die "不正なタスク ID: $1"
+  [ -f "$(task_file "$1")" ] || die "タスクが存在しません: $1"
+}
+
+# jq フィルタを適用してアトミックに書き戻す (呼び出し側でロック済みであること)
+update_task() {
+  local id="$1" filter="$2"; shift 2
+  local f tmp
+  f=$(task_file "$id")
+  tmp="$f.tmp.$$"
+  jq "$@" --arg now "$(now)" "$filter | .updated = \$now" "$f" >"$tmp"
+  mv "$tmp" "$f"
+}
+
+caller_tag() {
+  if [ -n "${CLAUDE_CODE_SESSION_ID:-}" ]; then echo " (from session ${CLAUDE_CODE_SESSION_ID:0:8})"; fi
+}
+
+csv_to_json() {
+  jq -nc --arg s "$1" '$s | split(",") | map(gsub("^\\s+|\\s+$"; "")) | map(select(. != ""))'
+}
+
+# ---------------------------------------------------------------------------
+# 表示時の導出に使う入力
+# ---------------------------------------------------------------------------
+all_tasks_json() {
+  local files=("$TASKS_DIR"/T-*.json)
+  if [ -e "${files[0]}" ]; then jq -s '.' "${files[@]}"; else echo '[]'; fi
+}
+
+live_sessions_json() {
+  local files=("$SESSIONS_DIR"/*.json)
+  if [ -e "${files[0]}" ]; then
+    jq -s '[.[] | select(.sessionId != null) | {sessionId, name: (.name // ""), cwd: (.cwd // ""), status: (.status // "?"), pid}]' "${files[@]}" 2>/dev/null || echo '[]'
+  else
+    echo '[]'
+  fi
+}
+
+# CLAUDE.local.md の Plan Group mapping ("- <pattern>: <group>") を [{pattern, group}] に
+group_map_json() {
+  if [ -f "$LOCAL_MD" ]; then
+    sed -n 's/^- \([^:[:space:]][^:]*\): \([A-Za-z0-9_-][A-Za-z0-9_-]*\)$/\1\t\2/p' "$LOCAL_MD" |
+      jq -Rsc 'split("\n") | map(select(. != "") | split("\t") | {pattern: .[0], group: .[1]})'
+  else
+    echo '[]'
+  fi
+}
+
+expand_dir() {
+  case "$1" in
+    \~) echo "$HOME" ;;
+    \~/*) echo "$HOME/${1#\~/}" ;;
+    *) echo "$1" ;;
+  esac
+}
+
+# dir → 本体 repo のルート (git 外なら空)。worktree の中でも本体側を返すよう、git-common-dir が "<repo>/.git" ならその親を使う。
+# submodule は git-common-dir が "<super>/.git/modules/<name>" になるため toplevel に落とす
+repo_root_of_dir() {
+  local d common
+  d=$(expand_dir "$1")
+  common=$(git -C "$d" rev-parse --path-format=absolute --git-common-dir 2>/dev/null) || return 0
+  if [[ "$common" == */.git ]]; then
+    dirname "$common"
+    return 0
+  fi
+  # submodule: 本体側のチェックアウト位置は common dir の core.worktree (common dir からの相対) にある。
+  # submodule 内の worktree で toplevel を使うと worktree 自身を返してしまうため、こちらを優先する
+  local wt
+  wt=$(git --git-dir="$common" config core.worktree 2>/dev/null || true)
+  if [ -n "$wt" ] && (cd "$common" && cd "$wt" 2>/dev/null); then
+    (cd "$common" && cd "$wt" && pwd -P)
+  else
+    git -C "$d" rev-parse --show-toplevel
+  fi
+}
+
+repo_of_dir() {
+  local root
+  root=$(repo_root_of_dir "$1")
+  basename "${root:-$(expand_dir "$1")}"
+}
+
+# タスクと live session の全 dir について {dir: repo} を作る
+repo_map_json() {
+  local tasks="$1" live="$2" d out='{}'
+  while IFS= read -r d; do
+    [ -n "$d" ] || continue
+    out=$(jq -c --arg d "$d" --arg r "$(repo_of_dir "$d")" '. + {($d): $r}' <<<"$out")
+  done < <(jq -rn --argjson t "$tasks" --argjson l "$live" '([$t[].dir] + [$l[].cwd]) | unique | .[]')
+  echo "$out"
+}
+
+# 全タスクに live / blocked / repo / group を付けた配列と、タスク外 session を返す
+#   {tasks: [...], untracked: [...], running_alive: N, max_running: N}
+enriched_json() {
+  local tasks live gmap rmap
+  tasks=$(all_tasks_json)
+  live=$(live_sessions_json)
+  gmap=$(group_map_json)
+  rmap=$(repo_map_json "$tasks" "$live")
+  jq -n --argjson tasks "$tasks" --argjson live "$live" --argjson gmap "$gmap" --argjson rmap "$rmap" \
+    --arg home "$HOME" --arg self "${CLAUDE_CODE_SESSION_ID:-}" --argjson max "$MAX_RUNNING" '
+    def expand: if startswith("~/") then $home + .[1:] elif . == "~" then $home else . end;
+    def group_of: (expand) as $d
+      | [$gmap[] | . as $m | select(($d | endswith("/" + $m.pattern)) or ($d | contains("/" + $m.pattern + "/")))]
+      | sort_by(.pattern | length) | last | (.group // "");
+    ($tasks | map({key: .id, value: .status}) | from_entries) as $st
+    | ($tasks | map(select(.session_id != "") | .session_id)) as $linked
+    | ($tasks | map(
+        . as $t
+        | ([$live[] | select(.sessionId == $t.session_id)] | first) as $s
+        | . + {
+            live: (if $t.session_id == "" then "" elif $s then $s.status else "exited" end),
+            blocking: [$t.blocked_by[] | select(($st[.] // "missing") as $x | $x != "done" and $x != "dropped")],
+            repo: (if $t.dir == "" then "" else ($rmap[$t.dir] // "") end),
+            group: (if $t.dir == "" then "" else ($t.dir | group_of) end)
+          }
+      )) as $all
+    | {
+        tasks: $all,
+        untracked: [$live[] | select(.sessionId as $i | ($linked | index($i)) == null and $i != $self)
+                    | . + {repo: ($rmap[.cwd] // ""), group: (.cwd | group_of)}],
+        running_alive: ([$all[] | select(.status == "running" and .live != "exited" and .live != "")] | length),
+        max_running: $max
+      }'
+}
+
+# ---------------------------------------------------------------------------
+# subcommands
+# ---------------------------------------------------------------------------
+cmd_add() {
+  local dir="" priority=2 blocked="" body="" title
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --dir) dir="$2"; shift 2 ;;
+      --priority) priority="$2"; shift 2 ;;
+      --blocked-by) blocked="$2"; shift 2 ;;
+      --body) body="$2"; shift 2 ;;
+      --) shift; break ;;
+      -*) die "add: 不明なオプション $1" ;;
+      *) break ;;
+    esac
+  done
+  title="$*"
+  [ -n "$title" ] || die "add: title が必要です"
+  [[ "$priority" =~ ^[1-3]$ ]] || die "add: priority は 1-3"
+  [ -n "$body" ] || body="$title"
+  if [ -n "$dir" ]; then [ -d "$(expand_dir "$dir")" ] || die "add: dir が存在しません: $dir"; fi
+
+  local blocked_json b
+  blocked_json=$(csv_to_json "$blocked")
+  for b in $(jq -r '.[]' <<<"$blocked_json"); do require_task "$b"; done
+
+  lock
+  local seq id status
+  seq=$(( $(cat "$SEQ_FILE" 2>/dev/null || echo 0) + 1 ))
+  echo "$seq" >"$SEQ_FILE"
+  id="T-$seq"
+  status=$([ -n "$dir" ] && echo queued || echo inbox)
+  jq -n --arg id "$id" --arg title "$title" --arg status "$status" --arg dir "$dir" \
+    --argjson priority "$priority" --argjson blocked "$blocked_json" --arg body "$body" \
+    --arg now "$(now)" --arg msg "add$(caller_tag)" '{
+      id: $id, title: $title, status: $status, dir: $dir, priority: $priority,
+      blocked_by: $blocked, session_name: "", session_id: "", prs: [], plan_topic: "",
+      body: $body, log: [{at: $now, msg: $msg}], created: $now, updated: $now
+    }' >"$(task_file "$id")"
+  echo "$id"
+}
+
+STATUSES="inbox queued running done dropped"
+
+cmd_set() {
+  local id="$1"; shift
+  require_task "$id"
+  [ $# -gt 0 ] || die "set: key=value が必要です"
+  lock
+  local kv key val
+  for kv in "$@"; do
+    [[ "$kv" == *=* ]] || die "set: key=value 形式ではありません: $kv"
+    key="${kv%%=*}"; val="${kv#*=}"
+    case "$key" in
+      title|plan_topic)
+        update_task "$id" ".$key = \$v" --arg v "$val" ;;
+      dir)
+        if [ -n "$val" ]; then [ -d "$(expand_dir "$val")" ] || die "set: dir が存在しません: $val"; fi
+        update_task "$id" '.dir = $v | if .status == "inbox" and $v != "" then .status = "queued" else . end' --arg v "$val" ;;
+      priority)
+        [[ "$val" =~ ^[1-3]$ ]] || die "set: priority は 1-3"
+        update_task "$id" '.priority = ($v | tonumber)' --arg v "$val" ;;
+      blocked_by)
+        local j b
+        j=$(csv_to_json "$val")
+        for b in $(jq -r '.[]' <<<"$j"); do
+          [ "$b" != "$id" ] || die "set: 自分自身には依存できません"
+          require_task "$b"
+        done
+        update_task "$id" '.blocked_by = $v' --argjson v "$j" ;;
+      prs)
+        update_task "$id" '.prs = $v' --argjson v "$(csv_to_json "$val")" ;;
+      status)
+        [[ " $STATUSES " == *" $val "* ]] || die "set: status は $STATUSES のいずれか"
+        if [ "$val" = queued ] && [ "$(jq -r .dir "$(task_file "$id")")" = "" ]; then
+          die "set: dir 未定のまま queued にはできません"
+        fi
+        update_task "$id" '.status = $v | .log += [{at: $now, msg: ("status -> " + $v)}]' --arg v "$val" ;;
+      *) die "set: 変更できないキー: $key" ;;
+    esac
+  done
+}
+
+cmd_log() {
+  local id="$1"; shift
+  require_task "$id"
+  [ $# -gt 0 ] || die "log: メッセージが必要です"
+  lock
+  update_task "$id" '.log += [{at: $now, msg: $m}]' --arg m "$*$(caller_tag)"
+}
+
+cmd_link() {
+  local id="$1" sid="$2" name="${3:-}"
+  require_task "$id"
+  [ -n "$sid" ] || die "link: session_id が必要です"
+  lock
+  update_task "$id" '
+    .session_id = $sid | .session_name = (if $name != "" then $name else .session_name end)
+    | .status = (if .status == "done" or .status == "dropped" then .status else "running" end)
+    | .log += [{at: $now, msg: ("link session " + $sid[0:8] + (if $name != "" then " (" + $name + ")" else "" end))}]
+  ' --arg sid "$sid" --arg name "$name"
+}
+
+cmd_adopt() {
+  local key="${1:-}"; shift || true
+  [ -n "$key" ] || die "adopt: session 名か session_id が必要です"
+  local s
+  s=$(live_sessions_json | jq -c --arg k "$key" '[.[] | select(.name == $k or .sessionId == $k or (.sessionId | startswith($k)))] | first // empty')
+  [ -n "$s" ] || die "adopt: live session が見つかりません: $key"
+  local sid name cwd existing title id
+  sid=$(jq -r .sessionId <<<"$s"); name=$(jq -r .name <<<"$s"); cwd=$(jq -r .cwd <<<"$s")
+  existing=$(cmd_id_of_session "$sid")
+  [ -z "$existing" ] || die "adopt: 既に $existing に紐付いています"
+  title="${*:-${name:-session ${sid:0:8}}}"
+  cwd="${cwd/#$HOME/\~}"
+  id=$(cmd_add --dir "$cwd" -- "$title")
+  rmdir "$LOCK_DIR" 2>/dev/null || true
+  cmd_link "$id" "$sid" "$name"
+  echo "$id"
+}
+
+# /bankai・/delegate が起動に使う決定的な仕様。起動 dir は常に本体 repo のルート (信頼済み dir で起動し、
+# 信頼確認を増やさない)。worktree は起動後に子 session 自身が EnterWorktree で切るよう指示文に埋め込む
+cmd_launch_spec() {
+  local id="$1"
+  require_task "$id"
+  local t dir status root wt prompt
+  t=$(jq -c . "$(task_file "$id")")
+  dir=$(jq -r .dir <<<"$t"); status=$(jq -r .status <<<"$t")
+  [ -n "$dir" ] || die "launch-spec: $id は dir 未定です (claude-task set $id dir=...)"
+  case "$status" in done|dropped) die "launch-spec: $id は $status です" ;; esac
+  root=$(repo_root_of_dir "$dir")
+  wt=""
+  if [ -n "$root" ]; then
+    wt="task-${id#T-}"
+    prompt="[$id] 作業を始める前に EnterWorktree (name: $wt) で worktree を作成し、以降はその中で作業してください。この worktree 作成は /bankai からの指示のため、Worktree Rule の /wt による確認は不要です。"
+    # repo 内のサブディレクトリ (monorepo 等) は worktree 内の同じ相対パスを案内する。worktree 自体を指す dir でも正しく取れるよう show-prefix を使う
+    local prefix
+    prefix=$(git -C "$(expand_dir "$dir")" rev-parse --show-prefix 2>/dev/null || true)
+    if [ -n "$prefix" ]; then
+      prompt+=" 作業対象は repo 内の ${prefix%/} です (worktree 内の同じ相対パス)。"
+    fi
+  else
+    root=$(expand_dir "$dir")
+    prompt="[$id]"
+  fi
+  prompt+=$'\n\n'"$(jq -r .body <<<"$t")"
+  jq -n --arg id "$id" --arg dir "$root" --arg wt "$wt" --arg prompt "$prompt" \
+    '{id: $id, dir: $dir, worktree: $wt, prompt: $prompt}'
+}
+
+cmd_id_of_session() {
+  local sid="$1"
+  all_tasks_json | jq -r --arg s "$sid" '[.[] | select(.session_id == $s)] | sort_by(.created) | last | .id // empty'
+}
+
+# 起動可能リスト。$1=auto なら空き枠まで
+next_json() {
+  enriched_json | jq --arg auto "${1:-}" '
+    .max_running - .running_alive as $free
+    | [.tasks[] | select(.status == "queued" and (.blocking | length) == 0)]
+    | sort_by(.priority, .created)
+    | if $auto == "auto" then .[0:([$free, 0] | max)] else . end'
+}
+
+cmd_next() {
+  local auto="" json=""
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --auto) auto=auto ;;
+      --json) json=1 ;;
+      *) die "next: 不明な引数 $1" ;;
+    esac
+    shift
+  done
+  local r
+  r=$(next_json "$auto")
+  if [ -n "$json" ]; then echo "$r"; return; fi
+  jq -r '.[] | "\(.id)\tP\(.priority)\t\(.dir)\t\(.title)"' <<<"$r"
+}
+
+cmd_finish() {
+  local id="$1" to="$2"
+  require_task "$id"
+  lock
+  update_task "$id" '.status = $v | .log += [{at: $now, msg: ($v + $tag)}]' --arg v "$to" --arg tag "$(caller_tag)"
+  rmdir "$LOCK_DIR" 2>/dev/null || true
+  local unblocked
+  unblocked=$(next_json "" | jq -r --arg id "$id" '.[] | select(.blocked_by | index($id)) | "  \(.id) \(.title)"')
+  echo "$id -> $to"
+  if [ -n "$unblocked" ]; then
+    echo "起動可能になったタスク:"
+    echo "$unblocked"
+  fi
+}
+
+cmd_ls() {
+  local all="" json="" group="" repo=""
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --all) all=1; shift ;;
+      --json) json=1; shift ;;
+      --group) group="$2"; shift 2 ;;
+      --repo) repo="$2"; shift 2 ;;
+      *) die "ls: 不明な引数 $1" ;;
+    esac
+  done
+  local e
+  e=$(enriched_json | jq --arg g "$group" --arg r "$repo" --arg all "$all" '
+    def keep: ($g == "" or .group == $g) and ($r == "" or .repo == $r);
+    .tasks |= map(select(keep and ($all == "1" or (.status != "done" and .status != "dropped"))))
+    | .untracked |= map(select(keep))')
+  if [ -n "$json" ]; then echo "$e"; return; fi
+
+  jq -r '
+    def where: if .repo == "" then "-" elif .group != "" and .group != .repo then .group + "/" + .repo else .repo end;
+    def line: "  \(.id)  [\(where)]  P\(.priority)  \(.title)"
+      + (if .session_name != "" then "  @" + .session_name else "" end)
+      + (if (.blocking | length) > 0 then "  ⛔ " + (.blocking | join(",")) else "" end);
+    def section($title; $xs): if ($xs | length) > 0 then "■ \($title) (\($xs | length))", ($xs[] | line), "" else empty end;
+    .tasks as $t
+    | section("返事待ち (idle/waiting)"; [$t[] | select(.status == "running" and (.live == "idle" or .live == "waiting"))]),
+      section("実行中 (busy)"; [$t[] | select(.status == "running" and ([.live] | inside(["idle", "waiting", "exited", ""]) | not))]),
+      section("要確認 (session 終了済み / 未紐付けの running)"; [$t[] | select(.status == "running" and (.live == "exited" or .live == ""))]),
+      section("起動可能 — 自動起動の枠 \([.max_running - .running_alive, 0] | max)/\(.max_running)"; [$t[] | select(.status == "queued" and (.blocking | length) == 0)] | sort_by(.priority, .created)),
+      section("ブロック中"; [$t[] | select((.status == "queued" or .status == "inbox") and (.blocking | length) > 0)]),
+      section("inbox (dir 未定)"; [$t[] | select(.status == "inbox" and (.blocking | length) == 0)]),
+      section("完了"; [$t[] | select(.status == "done")]),
+      section("取り下げ"; [$t[] | select(.status == "dropped")]),
+      (if (.untracked | length) > 0 then
+        "■ タスク外 session (\(.untracked | length)) — claude-task adopt <name> で取り込み",
+        (.untracked[] | "  @\(if .name != "" then .name else .sessionId[0:8] end)  [\(where)]  \(.status)"),
+        ""
+      else empty end)
+  ' <<<"$e"
+}
+
+main() {
+  local cmd="${1:-ls}"
+  shift || true
+  case "$cmd" in
+    add) cmd_add "$@" ;;
+    ls) cmd_ls "$@" ;;
+    show) require_task "${1:-}"; jq . "$(task_file "$1")" ;;
+    set) cmd_set "${1:-}" "${@:2}" ;;
+    log) cmd_log "${1:-}" "${@:2}" ;;
+    link) cmd_link "${1:-}" "${2:-}" "${3:-}" ;;
+    adopt) cmd_adopt "$@" ;;
+    done) cmd_finish "${1:-}" "done" ;;
+    drop) cmd_finish "${1:-}" dropped ;;
+    next) cmd_next "$@" ;;
+    id-of-session) cmd_id_of_session "${1:-}" ;;
+    launch-spec) cmd_launch_spec "${1:-}" ;;
+    -h|--help|help) sed -n '2,/^$/p' "$0" | sed 's/^# \{0,1\}//' ;;
+    *) die "不明なサブコマンド: $cmd (help を参照)" ;;
+  esac
+}
+
+main "$@"

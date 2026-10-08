@@ -24,6 +24,22 @@ mkdir -p "$SESSION_DIR" "$ACTIVE_DIR" "$DEPS_DIR"
 if [[ -n "$SESSION_ID" ]]; then
   echo "$SESSION_ID" > "$SESSION_DIR/$PPID"
 fi
+# --- タスク紐付け (claude-task) ---
+# /delegate が tmux new-window -e CLAUDE_TASK_ID=T-x で起動した session を、そのタスクに紐付ける。
+# adopt 済みの session も resume/compact 時に担当タスクを思い出せるよう session_id から逆引きする。
+CLAUDE_TASK_BIN=$(command -v claude-task || echo "$HOME/dotfiles/bin/claude-task")
+if [[ -n "$SESSION_ID" && -x "$CLAUDE_TASK_BIN" ]]; then
+  TASK_ID="${CLAUDE_TASK_ID:-}"
+  if [[ -n "$TASK_ID" && "$TRIGGER" != "compact" ]]; then
+    TASK_SESSION_NAME=$(jq -r '.name // empty' "$HOME/.claude/sessions/$PPID.json" 2>/dev/null) || TASK_SESSION_NAME=""
+    "$CLAUDE_TASK_BIN" link "$TASK_ID" "$SESSION_ID" "$TASK_SESSION_NAME" >/dev/null 2>&1 || TASK_ID=""
+  fi
+  [[ -n "$TASK_ID" ]] || TASK_ID=$("$CLAUDE_TASK_BIN" id-of-session "$SESSION_ID" 2>/dev/null) || TASK_ID=""
+  if [[ -n "$TASK_ID" ]]; then
+    echo "Task: この session は ${TASK_ID} を担当 (\`claude-task show ${TASK_ID}\`)。完了したら \`claude-task done ${TASK_ID}\`、PR を作ったら \`claude-task set ${TASK_ID} prs=<owner/repo#N>\`"
+  fi
+fi
+
 # 24h超の古いファイルをcleanup
 find "$SESSION_DIR" -type f -mmin +1440 -delete 2>/dev/null || true
 # 7日超のactive plan残骸をcleanup
@@ -33,13 +49,15 @@ find "$DEPS_DIR" -type f -mtime +7 -delete 2>/dev/null || true
 
 # --- worktree cleanup (残骸検出・削除) ---
 # compact: セッション継続中のため対象外 / fork: 並行セッションの worktree を消すリスクがあるため対象外
-if [ "$TRIGGER" != "compact" ] && [ "$TRIGGER" != "fork" ]; then
+# git 管理外の cwd: 掃除対象が無い (git/grep が失敗し pipefail で hook ごと落ちるのを防ぐ)
+if [ "$TRIGGER" != "compact" ] && [ "$TRIGGER" != "fork" ] && git rev-parse --git-dir >/dev/null 2>&1; then
   # 1. 参照切れ(ディレクトリ消失)の worktree エントリを掃除
   git worktree prune 2>/dev/null || true
 
   # 2. prune 後に残った worktree-* ブランチで、アクティブでないものを削除
   STALE_BRANCHES=()
-  ACTIVE_WTS=$(git worktree list --porcelain 2>/dev/null | grep '^branch ' | sed 's|^branch refs/heads/||')
+  # detached HEAD のみだと branch 行が無く grep が no-match で落ちるため || true
+  ACTIVE_WTS=$(git worktree list --porcelain 2>/dev/null | grep '^branch ' | sed 's|^branch refs/heads/||' || true)
   for branch in $(git branch --list 'worktree-*' --format='%(refname:short)' 2>/dev/null); do
     if ! echo "$ACTIVE_WTS" | grep -qx "$branch"; then
       STALE_BRANCHES+=("$branch")
@@ -53,12 +71,25 @@ if [ "$TRIGGER" != "compact" ] && [ "$TRIGGER" != "fork" ]; then
   fi
 
   # 3. ディレクトリが残っている worktree-* を差分で判定
+  # 生きている session が中で作業中の worktree は、未変更でも消さない
+  # (/bankai はリポジトリのルートで子 session を起動し、子が起動後に EnterWorktree する。並列起動すると、
+  #  未変更の直後に別 session の SessionStart がそれを消してしまうため)
+  LIVE_CWDS=""
+  for reg in "$SESSIONS_REGISTRY_DIR"/*.json; do
+    [ -f "$reg" ] || continue
+    reg_pid=$(jq -r '.pid // empty' "$reg" 2>/dev/null) || continue
+    [ -n "$reg_pid" ] && kill -0 "$reg_pid" 2>/dev/null || continue
+    LIVE_CWDS+="$(jq -r '.cwd // empty' "$reg" 2>/dev/null || true)"$'\n'
+  done
   CLEANED_WTS=()
   DIRTY_WTS=()
   while IFS= read -r line; do
     wt_path=$(echo "$line" | awk '{print $1}')
     wt_branch=$(echo "$line" | sed 's/.*\[//;s/\]//')
     [[ "$wt_branch" != worktree-* ]] && continue
+    if grep -qxF -e "$wt_path" <<<"$LIVE_CWDS" || grep -qF -e "$wt_path/" <<<"$LIVE_CWDS"; then
+      continue
+    fi
     if [ -z "$(git -C "$wt_path" status --porcelain 2>/dev/null)" ]; then
       git worktree remove "$wt_path" 2>/dev/null || true
       git branch -D "$wt_branch" 2>/dev/null || true
