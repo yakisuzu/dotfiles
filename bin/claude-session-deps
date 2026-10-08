@@ -1,9 +1,11 @@
 #!/bin/bash
 #
-# claude-session-deps - Claude の session 依存表示
-#   複数 Claude Code session の一覧と依存関係 (PR待ち/他session待ち/remote待ち) を
-#   graph (ブラウザ) で表示する。console 向けの table/popup 表示は廃止済み
-#   (2026-10-05, ユーザー判断で graph に一本化)。
+# claude-session-deps - 自分の PR と merge blocker の表示
+#   自分が author の open PR (local / remote session どちらが作ったものも) を base branch ごとの
+#   レーンに並べ、merge までに待っているもの (自分で解消: draft/CI✗/conflict/自分の前提 PR・issue、
+#   他人待ち: review 待ち/他人の前提・ペア・stacked 土台 PR/blocked-by issue) をブラウザに表示する。
+#   どの session (local / remote) がその PR を運転しているかは注釈として付く。
+#   console 向けの table/popup 表示は廃止済み (2026-10-05, ユーザー判断で graph に一本化)。
 #
 # 設計: dotfiles/claude/docs/plan-system-design.md と ~/.claude/plans/plan-claude-session-deps.md
 #       (Step 2) を参照。依存の実体は ~/.claude/plans/.deps/{session_id} (JSON Lines)。
@@ -17,9 +19,10 @@
 #                                                 pr の target は "<org>/<repo>#<number>" 形式
 #   claude-session-deps rm <type> <target>       現在 session から該当の依存を削除
 #   claude-session-deps graph [--interval N] [--no-open]
-#                                                 session を起点に GitHub 上の cross-reference と
-#                                                 PR 本文を辿って1ホップ先の PR/issue を自動発見し、
-#                                                 依存関係を階層レイアウトの図 (ノード+矢印) で
+#                                                 自分の open PR (gh search --author @me) を起点に、
+#                                                 cross-reference・PR 本文・base branch・closing issue の
+#                                                 blocked-by を辿って1ホップ先の PR/issue を自動発見し、
+#                                                 ボード (base branch 別レーン) と依存グラフを
 #                                                 ~/.cache/claude-session-deps/graph/index.html に生成、
 #                                                 既定のブラウザで開く。このプロセス自身がそのまま
 #                                                 N 秒 (既定5秒) ごとに data.js を再生成するループになり、

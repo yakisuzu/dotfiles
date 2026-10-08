@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="utf-8">
-<title>Claude session 依存表示</title>
+<title>My PR blockers</title>
 <style>
   :root {
     --bg: #f7f7f8;
@@ -93,7 +93,36 @@
   #changes-panel { width: 260px; flex: none; border: 1px solid var(--card-border); border-radius: 8px; padding: 10px; max-height: 70vh; overflow: auto; }
   #changes-panel h2 { font-size: 12px; margin: 0 0 8px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
   .change-line { font-size: 11px; margin-bottom: 6px; line-height: 1.4; }
+  .tabs { display: flex; gap: 4px; margin-top: 8px; }
+  .tab { border: 1px solid var(--card-border); background: var(--card-bg); color: var(--fg); border-radius: 6px; padding: 4px 12px; cursor: pointer; font: inherit; }
+  .tab[aria-selected="true"] { border-color: var(--fg); font-weight: 600; }
+  #main { flex: 1 1 auto; min-width: 0; }
+  #board-view { display: flex; flex-direction: column; gap: 16px; }
+  .lane { border: 1px solid var(--card-border); border-radius: 8px; background: var(--card-bg); }
+  .lane.stacked { border-left: 4px solid var(--merged); }
+  .lane-head { padding: 8px 12px; border-bottom: 1px solid var(--card-border); display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; }
+  .lane-head .route { font-weight: 700; font-size: 14px; }
+  .lane-head .branch { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; padding: 1px 6px; border-radius: 4px; border: 1px solid var(--card-border); }
+  .pr-row { display: grid; grid-template-columns: minmax(220px, 1.2fr) minmax(160px, 1fr) minmax(200px, 1.4fr); gap: 12px; padding: 8px 12px; border-top: 1px solid var(--card-border); align-items: start; }
+  .pr-row:first-of-type { border-top: 0; }
+  .pr-row.stale { opacity: 0.5; }
+  .pr-row .col-h { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 2px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 4px; }
+  .chip { font-size: 11px; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--card-border); text-decoration: none; color: inherit; white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+  a.chip:hover { text-decoration: underline; }
+  .chip.self { border-color: var(--warn); color: var(--warn); }
+  .chip.bad { border-color: var(--bad); color: var(--bad); }
+  .chip.others { border-color: var(--bad); }
+  .chip.followup { border-style: dashed; color: var(--muted); }
+  .chip.stale-tag { background: var(--unknown); color: var(--bg); border-color: var(--unknown); }
+  .chip.sess { color: var(--muted); }
+  .none { color: var(--ok); font-size: 11px; }
+  .dep { font-size: 11px; line-height: 1.5; }
+  .dep .who { color: var(--muted); }
+  .dep.mine-dep { color: var(--muted); }
+  .stale-group summary { cursor: pointer; padding: 6px 12px; color: var(--muted); font-size: 12px; border-top: 1px solid var(--card-border); }
   @media (max-width: 900px) {
+    .pr-row { grid-template-columns: 1fr; }
     #wrap { flex-direction: column; }
     #changes-panel { width: 100%; max-height: 240px; }
   }
@@ -101,15 +130,22 @@
 </head>
 <body>
 <header>
-  <h1>Claude session 依存表示</h1>
+  <h1>自分の PR と merge blocker</h1>
   <div id="meta">読み込み中…</div>
+  <div class="tabs" role="tablist">
+    <button class="tab" role="tab" data-tab="board" aria-selected="true">ボード (base branch 別)</button>
+    <button class="tab" role="tab" data-tab="graph" aria-selected="false">グラフ</button>
+  </div>
 </header>
 <div id="wrap">
-  <div id="board-outer">
-    <div id="board">
-      <svg id="edges"></svg>
+  <div id="main">
+    <div id="board-view"></div>
+    <div id="board-outer" hidden>
+      <div id="board">
+        <svg id="edges"></svg>
+      </div>
+      <div id="empty" hidden>表示する PR がありません。</div>
     </div>
-    <div id="empty" hidden>live session がありません。</div>
   </div>
   <div id="changes-panel">
     <h2>変化ログ</h2>

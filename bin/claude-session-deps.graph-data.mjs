@@ -33,12 +33,18 @@ const IGNORE_FILE = path.join(PLANS_DIR, ".deps-ignore");
 const CACHE_BASE = path.join(process.env.XDG_CACHE_HOME || path.join(os.homedir(), ".cache"), "claude-session-deps");
 const GQL_CACHE = path.join(CACHE_BASE, "gql");
 const TYPE_CACHE = path.join(CACHE_BASE, "type");
+const ISSUE_CACHE = path.join(CACHE_BASE, "issue");
+const SEED_CACHE = path.join(CACHE_BASE, "seed.json");
+const VIEWER_CACHE = path.join(CACHE_BASE, "viewer.json");
 const GRAPH_DIR = path.join(CACHE_BASE, "graph");
 const PREV_SNAPSHOT = path.join(GRAPH_DIR, "prev.json");
 const CHANGES_LOG = path.join(GRAPH_DIR, "changes.jsonl");
 
 const PR_TTL_MS = 60 * 1000;                 // PR の state / 本文 / cross-ref のキャッシュ
 const MERGED_WINDOW_MS = 14 * 24 * 3600 * 1000; // merged / closed 済みでも表示する期間
+const ISSUE_TTL_MS = 5 * 60 * 1000;          // 依存先 issue の state / assignee のキャッシュ
+const VIEWER_TTL_MS = 24 * 3600 * 1000;       // gh の認証ユーザー名
+const STALE_DAYS = 30;                        // 自分の PR がこの日数更新なしなら stale 表示
 const CHANGES_KEEP = 50;
 const CHANGES_SHOW = 20;
 const CONTEXT_CHARS = 60;
@@ -60,22 +66,37 @@ const URL_RE = /github\.com\/([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+)\/(pull|issues)
 const MENTION_RE = /(?:(?<owner>[A-Za-z0-9_.-]+)\/)?(?<repo>[A-Za-z0-9_.-]+)\s?#(?<num>\d+)|(?<![\w/#])#(?<bare>\d+)/g;
 
 const KIND_PRIORITY = { pair: 3, prerequisite: 2, followup: 2, related: 1 };
+// GitHub 上の構造 (base branch / blocked-by) から確定した辺。本文の方向語より確度が高いので優先する
+const STRUCTURAL_SOURCES = new Set(["stacked", "blockedBy"]);
 
+const PEOPLE = "author{login} assignees(first:5){nodes{login}}";
+const ISSUE_FIELDS = `number url state title updatedAt closedAt ${PEOPLE} repository{nameWithOwner}`;
 const GQL_QUERY = `
 query($owner:String!,$repo:String!,$number:Int!){
   repository(owner:$owner,name:$repo){
     pullRequest(number:$number){
       number url title body state isDraft mergedAt closedAt updatedAt baseRefName headRefName
-      reviewDecision mergeable
-      repository{ nameWithOwner owner{login} }
+      reviewDecision mergeable author{login}
+      repository{ nameWithOwner owner{login} defaultBranchRef{name} }
       commits(last:1){ nodes{ commit{ statusCheckRollup{ state } } } }
-      closingIssuesReferences(first:20){ nodes{ number url state title repository{nameWithOwner} } }
+      reviewRequests(first:10){ nodes{ requestedReviewer{ __typename ... on User{login} ... on Team{name} ... on Bot{login} } } }
+      latestReviews(first:10){ nodes{ author{login} state } }
+      closingIssuesReferences(first:20){ nodes{ ${ISSUE_FIELDS}
+        blockedBy(first:10){ nodes{ ${ISSUE_FIELDS} } } } }
       timelineItems(first:100, itemTypes:[CROSS_REFERENCED_EVENT]){
         nodes{ ... on CrossReferencedEvent { isCrossRepository createdAt
           source{ __typename
             ... on PullRequest { number url state isDraft mergedAt closedAt title repository{nameWithOwner} }
             ... on Issue { number url state closedAt title repository{nameWithOwner} } } } } }
     }
+  }
+}
+`;
+// stacked PR の検出用: base branch を head に持つ open PR (= 自分の PR が乗っている土台の PR)
+const STACK_QUERY = `
+query($owner:String!,$repo:String!,$head:String!){
+  repository(owner:$owner,name:$repo){
+    pullRequests(headRefName:$head, states:OPEN, first:1){ nodes{ number } }
   }
 }
 `;
@@ -144,24 +165,79 @@ function writeFileAtomic(p, text) {
   fs.renameSync(tmp, p);
 }
 
-async function fetchPr(owner, repo, number) {
-  fs.mkdirSync(GQL_CACHE, { recursive: true });
-  const cachePath = path.join(GQL_CACHE, `${owner}_${repo}_${number}.json`);
-  if (cacheFresh(cachePath, PR_TTL_MS)) {
+// TTL 付きで JSON をファイルキャッシュする共通処理。fetcher が null を返したらキャッシュしない
+async function cachedJson(cachePath, ttlMs, fetcher) {
+  fs.mkdirSync(path.dirname(cachePath), { recursive: true });
+  if (cacheFresh(cachePath, ttlMs)) {
     try {
       return JSON.parse(fs.readFileSync(cachePath, "utf8"));
     } catch {
       // キャッシュ破損時はフォールスルーして取り直す
     }
   }
-  const data = await runJson([
-    "gh", "api", "graphql", "-f", `query=${GQL_QUERY}`,
-    "-F", `owner=${owner}`, "-F", `repo=${repo}`, "-F", `number=${number}`,
-  ]);
-  const pr = data && data.data && data.data.repository && data.data.repository.pullRequest;
-  if (!pr) return null;
-  writeFileAtomic(cachePath, JSON.stringify(pr));
-  return pr;
+  const value = await fetcher();
+  if (value === null || value === undefined) return null;
+  writeFileAtomic(cachePath, JSON.stringify(value));
+  return value;
+}
+
+async function fetchPr(owner, repo, number) {
+  return cachedJson(path.join(GQL_CACHE, `${owner}_${repo}_${number}.json`), PR_TTL_MS, async () => {
+    const data = await runJson([
+      "gh", "api", "graphql", "-f", `query=${GQL_QUERY}`,
+      "-F", `owner=${owner}`, "-F", `repo=${repo}`, "-F", `number=${number}`,
+    ]);
+    return (data && data.data && data.data.repository && data.data.repository.pullRequest) || null;
+  });
+}
+
+// base branch を head に持つ open PR の番号 (無ければ 0)。0 もキャッシュして毎回問い合わせない
+async function fetchStackBase(owner, repo, head) {
+  const safe = head.replace(/[^A-Za-z0-9_.-]/g, "_");
+  const r = await cachedJson(path.join(GQL_CACHE, `stack_${owner}_${repo}_${safe}.json`), PR_TTL_MS, async () => {
+    const data = await runJson([
+      "gh", "api", "graphql", "-f", `query=${STACK_QUERY}`,
+      "-F", `owner=${owner}`, "-F", `repo=${repo}`, "-f", `head=${head}`,
+    ]);
+    if (!data || !data.data) return null;
+    const n = ((((data.data.repository || {}).pullRequests || {}).nodes) || [])[0];
+    return { number: n ? n.number : 0 };
+  });
+  return r ? r.number : 0;
+}
+
+// REST の issue 1 件 (state / title / author / assignees / updated_at)。本文言及で見つけた
+// 事前・事後対応 issue のメタ情報に使う
+async function fetchIssue(owner, repo, number) {
+  return cachedJson(path.join(ISSUE_CACHE, `${owner}_${repo}_${number}.json`), ISSUE_TTL_MS, async () => {
+    const d = await runJson(["gh", "api", `repos/${owner}/${repo}/issues/${number}`]);
+    if (!d || !d.number) return null;
+    return {
+      title: d.title || "", state: String(d.state || "").toUpperCase(), url: d.html_url || "",
+      updatedAt: d.updated_at || "", author: (d.user || {}).login || "",
+      assignees: (d.assignees || []).map((a) => a.login),
+    };
+  });
+}
+
+async function fetchViewer() {
+  const v = await cachedJson(VIEWER_CACHE, VIEWER_TTL_MS, async () => {
+    const d = await runJson(["gh", "api", "user"]);
+    return d && d.login ? { login: d.login } : null;
+  });
+  return v ? v.login : "";
+}
+
+// 自分が author の open PR (= board の主語)。remote session が作った PR もここで拾える
+async function fetchSeeds() {
+  const list = await cachedJson(SEED_CACHE, PR_TTL_MS, async () => {
+    const d = await runJson([
+      "gh", "search", "prs", "--author", "@me", "--state", "open",
+      "--json", "repository,number", "--limit", "100",
+    ]);
+    return Array.isArray(d) ? d.map((p) => ({ repo: p.repository.nameWithOwner, number: p.number })) : null;
+  });
+  return list || [];
 }
 
 async function lookupType(owner, repo, number) {
@@ -280,6 +356,8 @@ function prNodeFromGql(owner, repo, number, pr) {
     id: prId(owner, repo, number), type: "pr", repo: `${owner}/${repo}`, number,
     url: `https://github.com/${owner}/${repo}/pull/${number}`,
     title: "", state: "UNKNOWN", draft: false, ci: "", review: "", merged_at: "", owners: [],
+    author: "", base: "", head: "", default_branch: "", mergeable: "", updated_at: "",
+    review_requests: [], remote_sessions: [],
   };
   if (pr) {
     const rollup = (((pr.commits || {}).nodes || [{}])[0].commit || {}).statusCheckRollup || {};
@@ -291,9 +369,42 @@ function prNodeFromGql(owner, repo, number, pr) {
       review: pr.reviewDecision || "",
       merged_at: pr.mergedAt || "",
       url: pr.url || node.url,
+      author: (pr.author || {}).login || "",
+      base: pr.baseRefName || "",
+      head: pr.headRefName || "",
+      default_branch: ((pr.repository || {}).defaultBranchRef || {}).name || "",
+      mergeable: pr.mergeable || "",
+      updated_at: pr.updatedAt || "",
+      review_requests: (((pr.reviewRequests || {}).nodes) || [])
+        .map((n) => (n.requestedReviewer || {}))
+        .map((r) => r.login || (r.name ? `team:${r.name}` : ""))
+        .filter(Boolean),
+      // remote (claude.ai/code) session が作った PR は本文末尾に session URL を持つ。
+      // local の transcript からは辿れないので、運転中 session の手掛かりはこれしかない
+      remote_sessions: [...new Set(
+        [...String(pr.body || "").matchAll(/https:\/\/claude\.ai\/code\/session_[A-Za-z0-9]+/g)].map((m) => m[0]),
+      )],
     });
   }
   return node;
+}
+
+function issueNode(owner, repo, number, meta) {
+  return {
+    id: issueId(owner, repo, number), type: "issue", repo: `${owner}/${repo}`, number,
+    url: meta.url || `https://github.com/${owner}/${repo}/issues/${number}`,
+    title: meta.title || "", state: String(meta.state || "").toUpperCase(),
+    author: meta.author || "", assignees: meta.assignees || [], updated_at: meta.updatedAt || "",
+  };
+}
+
+// GraphQL の issue (ISSUE_FIELDS) を fetchIssue と同じ形に揃える
+function issueMetaFromGql(n) {
+  return {
+    title: n.title, state: n.state, url: n.url, updatedAt: n.updatedAt,
+    author: (n.author || {}).login || "",
+    assignees: (((n.assignees || {}).nodes) || []).map((a) => a.login),
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -302,9 +413,11 @@ function prNodeFromGql(owner, repo, number, pr) {
 const edgeKey = (a, b) => `${a} ${b}`;
 
 class GraphBuilder {
-  constructor(sessions, ignore) {
+  constructor(sessions, ignore, viewer, seeds) {
     this.sessions = sessions;
     this.ignore = ignore;
+    this.viewer = viewer;
+    this.seeds = seeds;          // [{repo:"owner/repo", number}] 自分が author の open PR
     this.nodes = new Map();      // id -> node
     this.prData = new Map();     // pr_id -> gql pr (raw)
     this.edges = new Map();      // edgeKey -> {from,to,kind,source,note}
@@ -362,6 +475,16 @@ class GraphBuilder {
     }
   }
 
+  // 事前・事後対応や blockedBy の issue は橋渡しかどうかに関係なくノード化する
+  async ensureIssue(owner, repo, number, meta = null) {
+    if (this.ignore.has(`${owner}/${repo}#${number}`)) return null;
+    const iid = issueId(owner, repo, number);
+    if (this.nodes.has(iid)) return iid;
+    const m = meta || await fetchIssue(owner, repo, number) || {};
+    if (!this.nodes.has(iid)) this.nodes.set(iid, issueNode(owner, repo, number, m));
+    return iid;
+  }
+
   addEdge(src, dst, kind, source, note = "") {
     if (src === dst) return;
     const key = kind === "pair" || kind === "related"
@@ -384,6 +507,7 @@ class GraphBuilder {
       if (this.edges.has(revKey)) {
         const e1 = this.edges.get(key), e2 = this.edges.get(revKey);
         if (e1.source === "manual" || e2.source === "manual") continue;
+        if (STRUCTURAL_SOURCES.has(e1.source) || STRUCTURAL_SOURCES.has(e2.source)) continue;
         this.edges.delete(key);
         this.edges.delete(revKey);
         const nk = edgeKey(...[a, b].sort());
@@ -407,14 +531,39 @@ class GraphBuilder {
         const target = await this.ensurePrIfInWindow(m.owner, m.repo, m.number);
         if (target) this.addEdgeByKind(seedId, target, m.kind, "body");
       } else if (hint === "issue") {
-        this.noteIssue(m.owner, m.repo, m.number, {}, seedId);
+        if (m.kind === "prerequisite" || m.kind === "followup") {
+          // merge のための事前対応 / merge 後の事後対応 issue
+          const target = await this.ensureIssue(m.owner, m.repo, m.number);
+          if (target) this.addEdgeByKind(seedId, target, m.kind, "body");
+        } else {
+          this.noteIssue(m.owner, m.repo, m.number, {}, seedId);
+        }
       }
     }));
 
-    // closes: 構造化された issue リンク (ネットワーク I/O 不要、同期のまま)
+    // closes: 構造化された issue リンク。その issue に GitHub ネイティブの blocked-by が
+    // 付いていれば、それは PR の merge 前提でもあるので prerequisite 辺にする
+    const blockedBy = [];
     for (const n of (pr.closingIssuesReferences || {}).nodes || []) {
       const [o, r] = splitNameWithOwner(n.repository.nameWithOwner);
       this.noteIssue(o, r, n.number, { title: n.title, state: n.state, url: n.url }, seedId);
+      for (const b of ((n.blockedBy || {}).nodes) || []) blockedBy.push({ closing: n, b });
+    }
+    await Promise.all(blockedBy.map(async ({ closing, b }) => {
+      const [o, r] = splitNameWithOwner(b.repository.nameWithOwner);
+      const target = await this.ensureIssue(o, r, b.number, issueMetaFromGql(b));
+      if (target) this.addEdge(seedId, target, "prerequisite", "blockedBy", `#${closing.number} が blocked by`);
+    }));
+
+    // stacked: base が default branch 以外なら、その branch を head に持つ open PR が土台
+    const base = pr.baseRefName || "";
+    const defaultBranch = ((pr.repository || {}).defaultBranchRef || {}).name || "";
+    if (base && defaultBranch && base !== defaultBranch) {
+      const n = await fetchStackBase(owner, repo, base);
+      if (n && n !== pr.number) {
+        const target = await this.ensurePr(owner, repo, n);
+        if (target) this.addEdge(seedId, target, "prerequisite", "stacked", `base: ${base}`);
+      }
     }
 
     // incoming: timeline の cross-reference。こちらも並列に解決する
@@ -433,6 +582,18 @@ class GraphBuilder {
         this.noteIssue(o, r, src.number, { title: src.title, state: src.state, url: src.url }, seedId);
       }
     }));
+  }
+
+  // 構造的な辺がある 2 ノード間では、本文由来の推測辺 (pair / related 等) を落とす (手動宣言は残す)
+  preferStructural() {
+    const pairs = new Set();
+    for (const e of this.edges.values()) {
+      if (STRUCTURAL_SOURCES.has(e.source)) pairs.add(edgeKey(...[e.from, e.to].sort()));
+    }
+    for (const [k, e] of [...this.edges]) {
+      if (STRUCTURAL_SOURCES.has(e.source) || e.source === "manual") continue;
+      if (pairs.has(edgeKey(...[e.from, e.to].sort()))) this.edges.delete(k);
+    }
   }
 
   kindFromOtherBody(otherId, owner, repo, number) {
@@ -475,7 +636,7 @@ class GraphBuilder {
         }
       }
       if (allConnected) continue;
-      this.nodes.set(iid, { ...this.issueMeta.get(iid) });
+      if (!this.nodes.has(iid)) this.nodes.set(iid, { ...this.issueMeta.get(iid) });
       for (const p of prs) {
         const key = edgeKey(...[p, iid].sort());
         if (!this.edges.has(key)) {
@@ -544,14 +705,109 @@ class GraphBuilder {
   }
 
   async build() {
+    // 主語は自分が author の open PR。session (local) が握る PR はその注釈として後から紐づける
+    await Promise.all(this.seeds.map((p) => this.ensurePr(...splitNameWithOwner(p.repo), p.number)));
     await this.attachSessions();
-    // seed (session が所有する PR) の展開は互いに独立なので並列に行う
+    // seed (自分の PR + session が所有する PR) の展開は互いに独立なので並列に行う
     const seedIds = [...this.nodes.keys()].filter((n) => n.startsWith("pr:"));
     await Promise.all(seedIds.map((nid) => this.expandFrom(nid)));
     this.resolveMutualPairs();
+    this.preferStructural();
     this.attachBridgeIssues();
-    return { nodes: [...this.nodes.values()], edges: [...this.edges.values()] };
+    for (const n of this.nodes.values()) {
+      if (n.type === "pr") n.mine = Boolean(this.viewer) && n.author === this.viewer;
+    }
+    const graph = { nodes: [...this.nodes.values()], edges: [...this.edges.values()] };
+    return { graph, board: buildBoard(graph, this.viewer) };
   }
+}
+
+// ---------------------------------------------------------------------------
+// board: 自分の PR ごとに「merge まで何を待っているか」を、自分で解消できるもの (self) と
+// 他人待ち (others) に分けてまとめ、base branch ごとのレーンに振り分ける
+// ---------------------------------------------------------------------------
+function daysSince(iso) {
+  const d = parseIso(iso);
+  return d ? Math.floor((Date.now() - d.getTime()) / (24 * 3600 * 1000)) : null;
+}
+
+function isResolved(n) {
+  return n.state === "MERGED" || n.state === "CLOSED";
+}
+
+function refItem(n, e, extra = {}) {
+  return {
+    id: n.id, type: n.type, ref: `${n.repo}#${n.number}`, url: n.url, title: n.title || "",
+    state: n.state || "", draft: Boolean(n.draft), author: n.author || "", assignees: n.assignees || [],
+    base: n.base || "", updated_days: daysSince(n.updated_at), kind: e.kind, source: e.source, note: e.note || "",
+    ...extra,
+  };
+}
+
+// 依存先が「自分の手で進められるか」。PR は author、issue は assignee (未割当なら author) で判定
+function isMineRef(n, viewer) {
+  if (!viewer) return false;
+  if (n.type === "pr") return n.author === viewer;
+  if (n.type === "issue") return n.assignees && n.assignees.length ? n.assignees.includes(viewer) : n.author === viewer;
+  return false;
+}
+
+function buildBoard(graph, viewer) {
+  const byId = new Map(graph.nodes.map((n) => [n.id, n]));
+  const lanes = new Map();
+  for (const pr of graph.nodes) {
+    if (pr.type !== "pr" || !pr.mine || pr.state !== "OPEN") continue;
+    const self = [], others = [], followups = [];
+    if (pr.draft) self.push({ label: "draft" });
+    if (pr.ci === "FAILURE" || pr.ci === "ERROR") self.push({ label: "CI✗" });
+    if (pr.mergeable === "CONFLICTING") self.push({ label: "conflict" });
+    if (pr.review === "CHANGES_REQUESTED") self.push({ label: "changes requested" });
+    if (pr.review_requests.length) others.push({ label: "review 待ち", who: pr.review_requests });
+    else if (pr.review === "REVIEW_REQUIRED" && !pr.draft) self.push({ label: "reviewer 未指定" });
+
+    for (const e of graph.edges) {
+      const otherId = e.from === pr.id ? e.to : e.to === pr.id ? e.from : null;
+      if (!otherId) continue;
+      const t = byId.get(otherId);
+      if (!t || (t.type !== "pr" && t.type !== "issue")) continue;
+      if (e.kind === "followup" && e.to === pr.id) {
+        // 事後対応 (この PR の後にやるもの)。merge の blocker ではないので別枠
+        if (!isResolved(t)) followups.push(refItem(t, e));
+        continue;
+      }
+      const isPrereq = e.kind === "prerequisite" && e.from === pr.id;
+      if (!isPrereq && e.kind !== "pair") continue;
+      if (e.kind === "pair" && t.state === "MERGED") {
+        self.push({ label: "ペアが先に merged", ref: `${t.repo}#${t.number}`, url: t.url });
+        continue;
+      }
+      if (isResolved(t)) continue;
+      const item = refItem(t, e, { kind: e.source === "stacked" ? "stacked" : e.kind });
+      (isMineRef(t, viewer) ? self : others).push(item);
+    }
+
+    const isDefault = !pr.base || pr.base === pr.default_branch;
+    const key = `${pr.repo}:${pr.base}`;
+    if (!lanes.has(key)) {
+      const stackEdge = graph.edges.find((e) => e.from === pr.id && e.source === "stacked");
+      lanes.set(key, {
+        key, repo: pr.repo, base: pr.base, is_default: isDefault,
+        base_pr: stackEdge ? refItem(byId.get(stackEdge.to), stackEdge) : null, prs: [],
+      });
+    }
+    const updatedDays = daysSince(pr.updated_at);
+    lanes.get(key).prs.push({
+      id: pr.id, updated_days: updatedDays, stale: updatedDays !== null && updatedDays > STALE_DAYS,
+      blockers: { self, others }, followups,
+    });
+  }
+  const laneList = [...lanes.values()];
+  for (const l of laneList) {
+    l.prs.sort((a, b) => (a.stale - b.stale) || ((a.updated_days ?? 1e9) - (b.updated_days ?? 1e9)));
+  }
+  // default branch 向けを先頭に、stacked / release branch 向けを後ろに並べる
+  laneList.sort((a, b) => (b.is_default - a.is_default) || a.repo.localeCompare(b.repo) || a.base.localeCompare(b.base));
+  return { viewer, stale_days: STALE_DAYS, lanes: laneList };
 }
 
 // ---------------------------------------------------------------------------
@@ -560,7 +816,8 @@ class GraphBuilder {
 function snapshotOf(graph) {
   const snap = {};
   for (const n of graph.nodes) {
-    if (n.type === "pr") snap[n.id] = { state: n.state, ci: n.ci, draft: n.draft };
+    if (n.type === "pr") snap[n.id] = { state: n.state, ci: n.ci, draft: n.draft, review: n.review };
+    else if (n.type === "issue" && n.state) snap[n.id] = { state: n.state };
   }
   return snap;
 }
@@ -579,17 +836,18 @@ function updateChanges(graph) {
   const newEntries = [];
   for (const [nid, c] of Object.entries(cur)) {
     const p = prev[nid];
-    const label = nid.replace(/^pr:/, "");
+    const label = nid.replace(/^(pr|issue):/, "");
     if (p === undefined) {
       if (hadPrev) newEntries.push({ ts, node: label, msg: "グラフに現れた" }); // 初回は新規を大量に出さない
       continue;
     }
     if (p.state !== c.state) newEntries.push({ ts, node: label, msg: `state ${p.state} → ${c.state}` });
     if (p.ci !== c.ci && c.ci) newEntries.push({ ts, node: label, msg: `CI ${p.ci || "-"} → ${c.ci}` });
-    if (p.draft !== c.draft) newEntries.push({ ts, node: label, msg: c.draft ? "draft に戻った" : "draft 解除" });
+    if (p.review !== c.review && c.review) newEntries.push({ ts, node: label, msg: `review ${p.review || "-"} → ${c.review}` });
+    if (p.draft !== undefined && p.draft !== c.draft) newEntries.push({ ts, node: label, msg: c.draft ? "draft に戻った" : "draft 解除" });
   }
   for (const nid of Object.keys(prev)) {
-    if (!(nid in cur)) newEntries.push({ ts, node: nid.replace(/^pr:/, ""), msg: "グラフから消えた" });
+    if (!(nid in cur)) newEntries.push({ ts, node: nid.replace(/^(pr|issue):/, ""), msg: "グラフから消えた" });
   }
   let existing = [];
   try {
@@ -619,14 +877,15 @@ function loadIgnore() {
 }
 
 async function buildPayload(scriptPath, interval, withChanges) {
-  const sessions = await loadSessions(scriptPath);
-  const graph = await new GraphBuilder(sessions, loadIgnore()).build();
+  const [sessions, viewer, seeds] = await Promise.all([loadSessions(scriptPath), fetchViewer(), fetchSeeds()]);
+  const { graph, board } = await new GraphBuilder(sessions, loadIgnore(), viewer, seeds).build();
   for (const s of sessions) delete s._anchor;
   return {
     generated_at: isoNow(),
     interval,
     sessions,
     graph,
+    board,
     changes: withChanges ? updateChanges(graph) : [],
   };
 }
