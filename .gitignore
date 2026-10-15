@@ -2,3 +2,6 @@
 log/*
 .claude/settings.local.json
 claude/skills/synced/
+
+# Claude Code が置き換えた skill の退避先
+claude/skills/.trash/
