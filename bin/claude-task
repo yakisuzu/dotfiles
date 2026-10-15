@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# claude-task - Claude session をまたぐタスク管理 (/kidou で積む・起動する、/bankai で把握・振り分ける)
+# claude-task - Claude session をまたぐタスク管理 (/hadou で積む・起動する、/bankai で把握・振り分ける)
 #
 # 状態の正は ~/.claude/plans/.tasks/<id>.json。書き込みはこのスクリプト経由のみ (スキーマと状態遷移を固定する)。
 # session の生死・返事待ち・ブロック中は保存せず、表示のたびに session registry とタスク間依存から導出する。
@@ -25,7 +25,7 @@
 #                                    タスクを追加し ID を出力。--waiting-on ありなら waiting、dir 指定ありなら queued、無しなら inbox
 #   claude-task ls [--all] [--json|--table|--slack]
 #                                    状態別に一覧 (返事待ち/実行中/要確認/依頼中/起動可能/ブロック中/inbox/タスク外 session)
-#                                    --table は Markdown 表 (タスク / 優先度 / 種別 / session / 概要 / 状態)。/kidou・/bankai の実行後表示用
+#                                    --table は Markdown 表 (タスク / 優先度 / 種別 / session / 概要 / 状態)。/hadou・/bankai の実行後表示用
 #                                    --slack は Slack 報告用 mrkdwn (優先度ごとの見出し + epic (無ければ概要) ごとの段落「お客さん名: 概要」。
 #                                    番号・session・状態は出さず、段落内のタスクは依存順に並べる)
 #   claude-task tree [<epic>]        epic の子を依存順の木で表示 (省略時は未完了の全 epic)
@@ -46,7 +46,7 @@
 #                                    (cwd が worktree 内なら実行せず案内のみ)
 #   claude-task launch-spec <id>     起動仕様を JSON で出力 {id, dir, worktree, prompt}。dir は本体 repo のルート、
 #                                    work は prompt に「起動後に EnterWorktree (name: task-<n>) で worktree を切る」指示を埋め込む
-#                                    (work 以外と git 外の dir では worktree 指示なし)。/kidou <n> (内部で /delegate task:) はこれをそのまま使う
+#                                    (work 以外と git 外の dir では worktree 指示なし)。/hadou <n> (内部で /delegate task:) はこれをそのまま使う
 #   claude-task brief <id>           担当 session に注入する 1 行 (種別ごとの完了手順と親 epic)。SessionStart hook が使う
 #   claude-task id-of-session <session_id>
 #                                    session に紐付くタスク ID を出力 (無ければ空)
@@ -436,7 +436,7 @@ cmd_adopt() {
   echo "$id"
 }
 
-# /kidou <n> (内部で /delegate task:) が起動に使う決定的な仕様。起動 dir は常に本体 repo のルート (信頼済み dir で起動し、
+# /hadou <n> (内部で /delegate task:) が起動に使う決定的な仕様。起動 dir は常に本体 repo のルート (信頼済み dir で起動し、
 # 信頼確認を増やさない)。worktree は起動後に子 session 自身が EnterWorktree で切るよう指示文に埋め込む
 cmd_launch_spec() {
   local id="$1"
@@ -458,7 +458,7 @@ cmd_launch_spec() {
     fi
   elif [ -n "$root" ]; then
     wt="task-${id#T-}"
-    prompt="[$id] 作業を始める前に EnterWorktree (name: $wt) で worktree を作成し、以降はその中で作業してください。この worktree 作成は /kidou からの起動指示のため、Worktree Rule の /wt による確認は不要です。"
+    prompt="[$id] 作業を始める前に EnterWorktree (name: $wt) で worktree を作成し、以降はその中で作業してください。この worktree 作成は /hadou からの起動指示のため、Worktree Rule の /wt による確認は不要です。"
     # repo 内のサブディレクトリ (monorepo 等) は worktree 内の同じ相対パスを案内する。worktree 自体を指す dir でも正しく取れるよう show-prefix を使う
     local prefix
     prefix=$(git -C "$(expand_dir "$dir")" rev-parse --show-prefix 2>/dev/null || true)
@@ -483,16 +483,16 @@ cmd_brief() {
   msg="Task: この session は ${id} ($(type_label "$type")) を担当 (\`claude-task show ${id}\`)。"
   case "$type" in
     analysis)
-      msg+="コードは変更しない。結論が出たら \`claude-task done ${id} <問題なし|issue や Slack の URL>\` で閉じる。修正が要ると分かったら /kidou で作業タスクとして積む" ;;
+      msg+="コードは変更しない。結論が出たら \`claude-task done ${id} <問題なし|issue や Slack の URL>\` で閉じる。修正が要ると分かったら /hadou で作業タスクとして積む" ;;
     request)
       msg+="依頼を送ったら \`claude-task set ${id} waiting_on=<相手・依頼先 URL>\`、返答を得たら \`claude-task done ${id} <返答の要旨か URL>\`" ;;
     epic)
-      msg+="epic の親 session。\`claude-task tree ${id}\` で子と依存を把握し、子は \`/kidou parent: ${id} <依頼文>\` で積み、起動は \`/kidou <n>\` をユーザーに提案する (自分では実装しない)。子がすべて終わったら \`claude-task done ${id}\`" ;;
+      msg+="epic の親 session。\`claude-task tree ${id}\` で子と依存を把握し、子は \`/hadou parent: ${id} <依頼文>\` で積み、起動は \`/hadou <n>\` をユーザーに提案する (自分では実装しない)。子がすべて終わったら \`claude-task done ${id}\`" ;;
     *)
       msg+="PR を作ったら \`claude-task set ${id} prs=<owner/repo#N>\`、完了したら \`claude-task done ${id}\` (PR 以外の成果物は \`done ${id} <URL>\`)" ;;
   esac
   if [ -n "$parent" ]; then
-    msg+="。親 epic: ${parent}「$(task_field "$parent" title)」(\`claude-task tree ${parent}\`)。派生タスクは \`/kidou parent: ${parent} ...\` で同じ epic に積む"
+    msg+="。親 epic: ${parent}「$(task_field "$parent" title)」(\`claude-task tree ${parent}\`)。派生タスクは \`/hadou parent: ${parent} ...\` で同じ epic に積む"
   fi
   echo "$msg"
 }
@@ -598,7 +598,7 @@ def state($titles):
   elif .status == "waiting" then [2.5, "依頼中", (if .waiting_on != "" then .waiting_on + " 待ち" else "相手待ち" end)]
   elif (.status == "queued" or .status == "inbox") and (.blocking | length) > 0 then [4, "ブロック中", $bl]
   # epic の「起動可能」は着手可ではなく、振り分け・進捗の親 session が未起動という意味なので分ける
-  elif .type == "epic" and .status == "queued" then [3.2, "親 session 未起動", "/kidou \(.id | ltrimstr("T-")) で起動"]
+  elif .type == "epic" and .status == "queued" then [3.2, "親 session 未起動", "/hadou \(.id | ltrimstr("T-")) で起動"]
   elif .status == "queued" and .priority == 4 then [3.5, "保留 (着手するなら目標へ格上げ)", ""]
   elif .status == "queued" then [3, "起動可能", ""]
   elif .status == "inbox" then [5, "inbox (dir 未定)", ""]
@@ -654,7 +654,7 @@ slack_view() {
       end'
 }
 
-# /kidou・/bankai の実行後にそのまま貼る Markdown 表 (タスク番号 / 優先度 / 種別 / session 名 / 概要 / 状態)。
+# /hadou・/bankai の実行後にそのまま貼る Markdown 表 (タスク番号 / 優先度 / 種別 / session 名 / 概要 / 状態)。
 # 並びはユーザーの対応が要る順 (返事待ち → 要確認 → 実行中 → 依頼中 → 起動可能 → epic の親 session 未起動 → 保留(優先度4) → ブロック中 → inbox → 完了/取り下げ)、
 # 同じ状態内は priority → created。タスク外 session は ID "-" で末尾に出す
 table_view() {
@@ -694,7 +694,7 @@ cmd_tree() {
             + " — " + (state($titles) | .[1] + (if .[2] != "" and .[1] != "ブロック中" then " (" + .[2] + ")" else "" end));
           def tree($depth): . as $t | line($depth), ($g[] | select(parent == $t.id) | tree($depth + 1));
           "\($e.id) \($e.type | tlabel) \($e.title)\($e | rel($titles)) — \($e | state($titles) | .[1])",
-          (if ($g | length) == 0 then "  (子なし: /kidou parent: \($e.id) <依頼文> で積む)" else ($g[] | select(parent == null) | tree(0)) end),
+          (if ($g | length) == 0 then "  (子なし: /hadou parent: \($e.id) <依頼文> で積む)" else ($g[] | select(parent == null) | tree(0)) end),
           ""
       end'
 }
@@ -732,7 +732,7 @@ cmd_ls() {
         ["要確認 (session 終了済み / 未紐付けの running)", ([$t[] | select(.status == "running" and (.live == "exited" or .live == "") and (.blocking | length) == 0)] | map(row))],
         ["依頼中 (相手待ち)", ([$t[] | select(.status == "waiting")] | sort_by(.priority, .created) | map(row))],
         ["起動可能", ([$t[] | select(.status == "queued" and .type != "epic" and .priority < 4 and (.blocking | length) == 0)] | sort_by(.priority, .created) | map(row))],
-        ["epic (親 session 未起動。/kidou <n> で振り分け・進捗の親 session を起動)", ([$t[] | select(.status == "queued" and .type == "epic" and (.blocking | length) == 0)] | sort_by(.priority, .created) | map(row))],
+        ["epic (親 session 未起動。/hadou <n> で振り分け・進捗の親 session を起動)", ([$t[] | select(.status == "queued" and .type == "epic" and (.blocking | length) == 0)] | sort_by(.priority, .created) | map(row))],
         ["保留 (4 その他。着手するなら目標へ格上げ)", ([$t[] | select(.status == "queued" and .type != "epic" and .priority == 4 and (.blocking | length) == 0)] | sort_by(.created) | map(row))],
         ["ブロック中", ([$t[] | select((.blocking | length) > 0 and (.status == "queued" or .status == "inbox"
                         or (.status == "running" and (.live == "exited" or .live == ""))))] | sort_by(.priority, .created) | map(row))],

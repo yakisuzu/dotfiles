@@ -10,7 +10,7 @@ model: sonnet
 
 現在の tmux の中に新しい window を作り、そこで `claude --name <name> --model <model> <prompt>` を起動する。起動する session のモデルは既定で `sonnet` (`model:` で上書き可)。新しい window は現在の session とは独立した Claude Code session になり、渡したプロンプトがその session の最初の発言として自動送信される。
 
-このスキルが行うのは「別 window を起動してプロンプトを渡す」ことだけ。タスク管理 (`claude-task`) と紐付ける場合は `task:` を渡す。新 session には環境変数 `CLAUDE_TASK_ID` が渡り、SessionStart hook がタスクと session を自動で紐付ける (running 化)。ユーザー向けの入口は `/kidou <n>` で、タスクの起動はそこから呼ばれる。このスキルは裏方で、タスクに紐付けない切り出しが要るときだけ直接使う。
+このスキルが行うのは「別 window を起動してプロンプトを渡す」ことだけ。タスク管理 (`claude-task`) と紐付ける場合は `task:` を渡す。新 session には環境変数 `CLAUDE_TASK_ID` が渡り、SessionStart hook がタスクと session を自動で紐付ける (running 化)。ユーザー向けの入口は `/hadou <n>` で、タスクの起動はそこから呼ばれる。このスキルは裏方で、タスクに紐付けない切り出しが要るときだけ直接使う。
 
 ## Arguments
 
@@ -86,7 +86,7 @@ name は受け付けない。window / session の名前は常に Steps 1 でプ�
 
    - 起動した window 名 (自動生成したこと)、作業ディレクトリ、モデル、渡したプロンプトの要旨を簡潔に報告する。
    - 他 window への切替は `tmux select-window -t <name>` (このスキルでは自動では切り替えない)。
-   - 完了通知が欲しい場合は `SendMessage` の `notify_when_idle: true` を該当 session 宛てに張る (`/kidou <n>` 経由の起動では kidou 側が張る)。
+   - 完了通知が欲しい場合は `SendMessage` の `notify_when_idle: true` を該当 session 宛てに張る (`/hadou <n>` 経由の起動では hadou 側が張る)。
 
 ## Non-goals (現時点)
 

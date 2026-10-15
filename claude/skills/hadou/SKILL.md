@@ -1,12 +1,12 @@
 ---
-name: kidou
-description: claude-task の小回りの操作をまとめた入口。依頼文を渡すとタスクとして積み、番号 (`/kidou 20 23`) を渡すとそのタスクの session を起動する。「あとでやる」「TODO に積んで」「タスク追加」「T-20 起動して」「積んで起動して」などで使う。どの session からでも呼べる。全体の把握・振り分けは /bankai。
+name: hadou
+description: claude-task の小回りの操作をまとめた入口。依頼文を渡すとタスクとして積み、番号 (`/hadou 20 23`) を渡すとそのタスクの session を起動する。「あとでやる」「TODO に積んで」「タスク追加」「T-20 起動して」「積んで起動して」などで使う。どの session からでも呼べる。全体の把握・振り分けは /bankai。
 argument-hint: "<n> [<n> ...] | [type: 分析|作業|依頼|epic] [parent: T-<n>] [dir: <path>] [after: T-<n>,...] [p1|p2|p3|p4] [起動まで] <依頼文>"
 allowed-tools: Bash(claude-task *)
 model: sonnet
 ---
 
-# Kidou Skill
+# Hadou Skill
 
 claude-task の小回りの操作 (積む・番号指定で起動する) を担う skill。この session では作業に着手しない。ユーザーへの確認も原則しない (操作を軽く保つ)。
 
@@ -30,7 +30,7 @@ claude-task の小回りの操作 (積む・番号指定で起動する) を担�
 - モデルは delegate の既定 (sonnet)。ユーザーがモデルを明示したときだけ `model: <alias>` を足す
 - status が `inbox` (dir 未定) のタスクは起動できない。body から dir が一意に決まれば `claude-task set T-<n> dir=<dir>` してから起動し、決まらなければ報告して飛ばす
 - ブロック中 (blocked_by 未完了) と優先度 4 (その他) も番号指定なら起動してよい (明示指示のため)。1 行その旨を添える
-- 種別による違い (worktree を切るのは作業だけ、完了手順) は `launch-spec` と SessionStart の注入文が決める。kidou は種別で起動手順を変えない
+- 種別による違い (worktree を切るのは作業だけ、完了手順) は `launch-spec` と SessionStart の注入文が決める。hadou は種別で起動手順を変えない
 - 依頼中 (waiting) のタスクも起動できる (催促文の作成など)。epic は親 session として起動する
 - 起動後、その session に `SendMessage` の `notify_when_idle: true` を張る (この session が生きている間だけのベストエフォート)
 - 報告は window 名・作業 dir・依頼の要旨を 1 件 1-2 行で。最後に Step 6 の一覧を貼る
@@ -89,5 +89,5 @@ claude-task の小回りの操作 (積む・番号指定で起動する) を担�
    claude-task add --type <analysis|work|request|epic> [--parent T-<n>] [--dir <dir>] --priority <1-4> [--customer <名前|全体>] [--summary <概要>] [--blocked-by T-1,T-2] [--waiting-on <相手・URL>] --body "<自己完結した依頼文>" -- "<title>"
    ```
    - 引数はシェルのクォートに注意 (依頼文に `"` や `$` が含まれる場合は heredoc で変数に入れてから渡す)
-5. **報告**: 1 行で `「<title>」を積みました (T-<n>、<種別>、優先度 <n> <分類>、<repo or inbox>)` と返す (epic の子なら「epic『…』の子」を添える)。「積んで起動」でなければ、起動するなら `/kidou <n>` と添える
+5. **報告**: 1 行で `「<title>」を積みました (T-<n>、<種別>、優先度 <n> <分類>、<repo or inbox>)` と返す (epic の子なら「epic『…』の子」を添える)。「積んで起動」でなければ、起動するなら `/hadou <n>` と添える
 6. **一覧表示**: どのモードでも最後に (起動後は取り直して) `claude-task ls --table` の出力 (Markdown 表: タスク / 優先度 / 種別 / session / 概要 / 状態) を **加工せずそのまま** 貼る。表は自分で組み立てない
