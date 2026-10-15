@@ -251,6 +251,8 @@ enriched_json() {
         | ([$tasks[] | select(.parent == $t.id) | .id]) as $kids
         | . + {
             live: (if $t.session_id == "" then "" elif $s then $s.status else "exited" end),
+            # session 名は registry の現在値を優先する (SessionStart の link 時点では registry に name が未登録のことがある)
+            session_name: (if ($s.name // "") != "" then $s.name else $t.session_name end),
             blocking: [$t.blocked_by[] | select(($st[.] // "missing") as $x | $x != "done" and $x != "dropped")],
             # epic の子 (保存せず parent から導出)。kids_open は未完了の子
             kids: $kids,
@@ -589,6 +591,8 @@ def state($titles):
   # running でも blocked_by が未完了なら補足に待ち先を出す (session が先に動いていても依存は残っている)
   | if .status == "running" then
     (if .live == "idle" or .live == "waiting" then [0, "返事待ち"]
+     # session が終了していて待ち先が残っているものは、確認より先に待ち先の完了が要るためブロック中に寄せる
+     elif (.live == "exited" or .live == "") and (.blocking | length) > 0 then [4, "ブロック中"]
      elif .live == "exited" or .live == "" then [1, "要確認 (session 終了)"]
      else [2, "実行中"] end) + [if (.blocking | length) > 0 then $bl else "" end]
   elif .status == "waiting" then [2.5, "依頼中", (if .waiting_on != "" then .waiting_on + " 待ち" else "相手待ち" end)]
@@ -725,12 +729,13 @@ cmd_ls() {
     | [
         ["返事待ち (idle/waiting)", ([$t[] | select(.status == "running" and (.live == "idle" or .live == "waiting"))] | sort_by(.priority, .created) | map(row))],
         ["実行中 (busy)", ([$t[] | select(.status == "running" and ([.live] | inside(["idle", "waiting", "exited", ""]) | not))] | sort_by(.priority, .created) | map(row))],
-        ["要確認 (session 終了済み / 未紐付けの running)", ([$t[] | select(.status == "running" and (.live == "exited" or .live == ""))] | map(row))],
+        ["要確認 (session 終了済み / 未紐付けの running)", ([$t[] | select(.status == "running" and (.live == "exited" or .live == "") and (.blocking | length) == 0)] | map(row))],
         ["依頼中 (相手待ち)", ([$t[] | select(.status == "waiting")] | sort_by(.priority, .created) | map(row))],
         ["起動可能", ([$t[] | select(.status == "queued" and .type != "epic" and .priority < 4 and (.blocking | length) == 0)] | sort_by(.priority, .created) | map(row))],
         ["epic (親 session 未起動。/kidou <n> で振り分け・進捗の親 session を起動)", ([$t[] | select(.status == "queued" and .type == "epic" and (.blocking | length) == 0)] | sort_by(.priority, .created) | map(row))],
         ["保留 (4 その他。着手するなら目標へ格上げ)", ([$t[] | select(.status == "queued" and .type != "epic" and .priority == 4 and (.blocking | length) == 0)] | sort_by(.created) | map(row))],
-        ["ブロック中", ([$t[] | select((.status == "queued" or .status == "inbox") and (.blocking | length) > 0)] | sort_by(.priority, .created) | map(row))],
+        ["ブロック中", ([$t[] | select((.blocking | length) > 0 and (.status == "queued" or .status == "inbox"
+                        or (.status == "running" and (.live == "exited" or .live == ""))))] | sort_by(.priority, .created) | map(row))],
         ["inbox (dir 未定)", ([$t[] | select(.status == "inbox" and (.blocking | length) == 0)] | sort_by(.priority, .created) | map(row))],
         ["完了", ([$t[] | select(.status == "done")] | map(row))],
         ["取り下げ", ([$t[] | select(.status == "dropped")] | map(row))],

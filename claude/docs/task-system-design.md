@@ -21,7 +21,7 @@
 ## 3. 保存する状態と導出する状態
 
 - **保存**: 意図と関係 (依頼文、type、parent、dir、priority、blocked_by、担当 session、PR、result、waiting_on、status = inbox/queued/running/waiting/done/dropped)。
-- **導出 (保存しない)**: epic の子一覧と進捗 (子の parent から)、running タスクの未完了の待ち先 (blocked_by。session が先に動いていても一覧の補足に出す)、session の生死・busy/idle (`~/.claude/sessions/*.json`、非公式フォーマット)、ブロック中か (blocked_by の status)、repo 名 (dir の git-common-dir)、プロダクト group (`CLAUDE.local.md` の Plan Group mapping)。
+- **導出 (保存しない)**: epic の子一覧と進捗 (子の parent から)、running タスクの未完了の待ち先 (blocked_by。session が先に動いていても一覧の補足に出し、session が終了していれば「要確認」ではなく「ブロック中」に寄せる)、session 名 (registry の現在値を優先。SessionStart の link 時点では registry に name が未登録のことがあるため、保存値は fallback)、session の生死・busy/idle (`~/.claude/sessions/*.json`、非公式フォーマット)、ブロック中か (blocked_by の status)、repo 名 (dir の git-common-dir)、プロダクト group (`CLAUDE.local.md` の Plan Group mapping)。
 - **理由**: 導出できる値を保存すると実態とずれる。session-deps v3 と同じ方針。idle をそのまま「ユーザーの番」と表示するのは近似 (単に作業が終わっただけの idle もある)。
 - **title は人に伝える名前**: 日本語 10-30 字の短い名詞句で、issue 番号・repo 名は入れない (repo は表示時に導出、番号は body)。`/bankai` の報告文ではタスクを番号ではなく title で呼ぶ (番号だけではユーザーに伝わらない)。CLI は長さの目安外を警告のみ (adopt の仮 title が session 名になるため拒否しない)、title 変更は旧値を log に残す。
 - **priority は作業の分類**: 1 復旧 (アラート・脆弱性・テスト復旧) / 2 優先 (問い合わせ・レビュー) / 3 目標 (月目標・顧客約束を含む戦略的作業。表示ラベルは「3 月」と読まれないよう「目標」) / 4 その他 (今ではない)。4 は `/bankai` が起動を提案しない (着手には目標への格上げ調整が要るため)。CLI の既定は 4 (未分類を急ぎ扱いしない)。優先度変更は旧値を log に残す。
