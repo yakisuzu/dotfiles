@@ -36,7 +36,8 @@ if [[ -n "$SESSION_ID" && -x "$CLAUDE_TASK_BIN" ]]; then
   fi
   [[ -n "$TASK_ID" ]] || TASK_ID=$("$CLAUDE_TASK_BIN" id-of-session "$SESSION_ID" 2>/dev/null) || TASK_ID=""
   if [[ -n "$TASK_ID" ]]; then
-    echo "Task: この session は ${TASK_ID} を担当 (\`claude-task show ${TASK_ID}\`)。完了したら \`claude-task done ${TASK_ID}\`、PR を作ったら \`claude-task set ${TASK_ID} prs=<owner/repo#N>\`"
+    # 完了の仕方は種別 (分析/作業/依頼/epic) で変わるため、文面は claude-task が決める
+    "$CLAUDE_TASK_BIN" brief "$TASK_ID" 2>/dev/null || true
   fi
 fi
 

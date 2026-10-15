@@ -29,7 +29,7 @@ name は受け付けない。window / session の名前は常に Steps 1 でプ�
 
 1. **プロンプトを確定し、name を生成する**
    - `task:` があれば `claude-task show <id>` で JSON を読む。status が `done` / `dropped` なら起動せず報告して止める。`running` で session が生きている (`claude-task ls` の返事待ち/実行中に出ている) なら二重起動になるため止めて報告する。
-   - `task:` 指定時: `claude-task launch-spec <id>` の `prompt` をそのままプロンプトにする (先頭の `[T-<n>]` と、起動後に EnterWorktree で worktree を切る指示が埋め込み済み)。残り全文があれば `prompt` の末尾に改行 2 つを挟んで追記する。
+   - `task:` 指定時: `claude-task launch-spec <id>` の `prompt` をそのままプロンプトにする (先頭の `[T-<n>]` と、作業 (work) なら起動後に EnterWorktree で worktree を切る指示、それ以外の種別なら worktree を切らない指示が埋め込み済み)。残り全文があれば `prompt` の末尾に改行 2 つを挟んで追記する。
    - `task:` 無し: `dir:` を取り除いた残り全文をプロンプトとする。
    - プロンプトの内容が全く特定できない場合のみ、ここで止めてユーザーに確認する。
    - プロンプトの内容を要約した 2〜4 単語程度の kebab-case 名を自分で生成する (英数字・ハイフンのみ、日本語の要旨はローマ字化や英訳で短く)。例: 「issue #123 の事前リファクタ (Foo を Bar に分離) をやって」→ `refactor-foo-bar` のような名前にする。

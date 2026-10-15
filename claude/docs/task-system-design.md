@@ -20,12 +20,12 @@
 
 ## 3. 保存する状態と導出する状態
 
-- **保存**: 意図と関係 (依頼文、dir、priority、blocked_by、担当 session、PR、status = inbox/queued/running/done/dropped)。
-- **導出 (保存しない)**: session の生死・busy/idle (`~/.claude/sessions/*.json`、非公式フォーマット)、ブロック中か (blocked_by の status)、repo 名 (dir の git-common-dir)、プロダクト group (`CLAUDE.local.md` の Plan Group mapping)。
+- **保存**: 意図と関係 (依頼文、type、parent、dir、priority、blocked_by、担当 session、PR、result、waiting_on、status = inbox/queued/running/waiting/done/dropped)。
+- **導出 (保存しない)**: epic の子一覧と進捗 (子の parent から)、session の生死・busy/idle (`~/.claude/sessions/*.json`、非公式フォーマット)、ブロック中か (blocked_by の status)、repo 名 (dir の git-common-dir)、プロダクト group (`CLAUDE.local.md` の Plan Group mapping)。
 - **理由**: 導出できる値を保存すると実態とずれる。session-deps v3 と同じ方針。idle をそのまま「ユーザーの番」と表示するのは近似 (単に作業が終わっただけの idle もある)。
 - **title は人に伝える名前**: 日本語 10-30 字の短い名詞句で、issue 番号・repo 名は入れない (repo は表示時に導出、番号は body)。`/bankai` の報告文ではタスクを番号ではなく title で呼ぶ (番号だけではユーザーに伝わらない)。CLI は長さの目安外を警告のみ (adopt の仮 title が session 名になるため拒否しない)、title 変更は旧値を log に残す。
 - **priority は作業の分類**: 1 復旧 (アラート・脆弱性・テスト復旧) / 2 優先 (問い合わせ・レビュー) / 3 目標 (月目標・顧客約束を含む戦略的作業。表示ラベルは「3 月」と読まれないよう「目標」) / 4 その他 (今ではない)。4 は `/bankai` が起動を提案しない (着手には目標への格上げ調整が要るため)。CLI の既定は 4 (未分類を急ぎ扱いしない)。優先度変更は旧値を log に残す。
-- **customer / summary は報告用**: Slack 報告の相手 (チーム) にとってタスク番号・session・作業状態や細かいタスク名は意味がなく、知りたいのは「どの優先度で、どのお客さんの、どの機能を進めているか」。そのため `ls --slack` は優先度で見出しを切り、summary (機能) ごとに「お客さん名: 概要」の段落を出す。段落内のタスクは依存 (blocked_by) が分かるように、待っているタスクを待ち先の下に字下げして並べる (段落外の待ち先は「(「…」の後)」)。タスクが 1 件だけで段落外の待ちも無い段落は見出し行だけにする。customer は特定顧客に紐づかない作業を「全体」、未確認を空 (表示「未確認」) として区別する。
+- **customer / summary は報告用** (epic の子は epic の summary / customer で段落を作る。§9): Slack 報告の相手 (チーム) にとってタスク番号・session・作業状態や細かいタスク名は意味がなく、知りたいのは「どの優先度で、どのお客さんの、どの機能を進めているか」。そのため `ls --slack` は優先度で見出しを切り、summary (機能) ごとに「お客さん名: 概要」の段落を出す。段落内のタスクは依存 (blocked_by) が分かるように、待っているタスクを待ち先の下に字下げして並べる (段落外の待ち先は「(「…」の後)」)。タスクが 1 件だけで段落外の待ちも無い段落は見出し行だけにする。customer は特定顧客に紐づかない作業を「全体」、未確認を空 (表示「未確認」) として区別する。
 - **ID に分類を入れない理由**: 追加時点では dir 未定のことがあり、複数 repo 跨ぎや途中移動もある。分類 (group / repo) は表示時に dir から導出し、一覧の各行に `[group/repo]` として出す。
 
 ## 4. 秘書は常駐しない
@@ -62,7 +62,23 @@
 - EnterWorktree は origin の default branch を基点にするため、local の未 push commit は worktree に含まれない (観測: dotfiles で main が origin より先行していたとき、worktree は origin 側の commit から作られた)。
 - **完了時の片付け**: `claude-task done` / `drop` はタスクの repo ルートで `delete_git_merged_branch.sh` を実行し、merge 済み branch とその worktree を消す。片付けを session の記憶に頼らず done に結びつけることで、担当 session が done し忘れて閉じても、後で bankai やユーザーが done した時点で片付く。呼び出し元の cwd が worktree 内のときは自分の cwd を消さないよう実行せず、`ExitWorktree` (keep) で抜けてからの実行を案内する。merge 判定は `git branch --merged` のため、squash merge された branch は対象外 (残る)。
 
-## 9. 今後 (Phase 3)
+## 9. 種別 (type) と epic
+
+- **決定**: タスクに type を持たせる。`analysis` 分析 / `work` 作業 (既定) / `request` 依頼 / `epic`。issue の Type と同じく一次分類とし、表示ラベルだけでなく起動と完了の挙動を CLI で変える。
+  | | analysis | work | request | epic |
+  |---|---|---|---|---|
+  | 成果物 | 結論 (問題なし / issue / Slack) | PR / issue / Slack 報告 | 他者の返答 | 子の完了 |
+  | 起動時 worktree | 切らない | 切る | 切らない | 切らない |
+  | `done` | result 必須 | prs も result も無ければ警告 | 制約なし | 未完了の子があれば拒否 |
+- **理由**: 分析と作業は完了の定義が違う (分析は「問題ない」と分かれば PR 無しで閉じてよい)。種別が無いと、分析 session が PR を作ろうとしたり、結論を残さず done したりする。完了条件を script に置けば、LLM の判断に頼らず結論が result に残る。
+- **完了手順の注入**: 担当 session への注入文は `claude-task brief` が種別ごとに決め、SessionStart hook はそれを出すだけ。種別の知識を hook と skill に分散させない。
+- **自分がするレビューは作業**: 往復はあっても、自分が成果物 (レビュー) を出す点で作業と同じ。区分を増やすと分類で迷う。動作確認・検証は成果物が結論なので分析、環境への適用は Slack 報告で閉じるので作業。
+- **依頼は status `waiting`**: 他者待ちは session が無くても続く状態のため、running とは別の status にする。`waiting_on` (相手・URL) を入れると waiting になる。他者待ちを依頼タスクにしておくと、それを blocked_by に持つタスクの「何待ちか」が一覧に出る (GitHub に書かれた待ちは引き続き claude-session-deps)。
+- **epic は 1 段、子が parent を持つ**: 子一覧を epic 側に保存すると parent と二重管理になるため、子の parent だけを保存し、子一覧・進捗は導出する。入れ子は持たない (tree と Slack 段落が 1 対 1 で単純)。epic 内の順序 (B の後に C) は既存の blocked_by で表し、`claude-task tree` が epic 内の最初の待ち先の下に字下げして見せる。
+- **summary は epic に統合**: 機能ごとの段落 (summary) と epic は同じ「ユースケースのまとまり」を表すため、epic の子は epic 単位で Slack 段落を作る。summary は epic の見出しと、epic に属さないタスクの段落にだけ使う。既存の summary のまとまりは `/bankai` が epic 化を提案する (自動移行はしない)。
+- **後方互換**: 種別追加前の JSON は書き換えず、読むときに `type: work` などの既定値で補う (`JQ_NORM`)。
+
+## 10. 今後 (Phase 3)
 
 - claude-session-deps の graph にタスク層を足す。PR が merge されたらタスクを done 候補として表示する。
 - `.deps` の pr/remote 宣言をタスクの `blocked_by` に吸収する。

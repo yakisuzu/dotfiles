@@ -1,6 +1,6 @@
 ---
 name: bankai
-description: 秘書としてタスク全体を把握し振り分ける。claude-task の残タスク・返事待ち session・ブロック状況を報告し、inbox の振り分けや優先度・メタ情報の整理を行う。「残タスクは？」「今どうなってる？」「タスクを整理して」などで使う。session の起動はしない (起動は /kidou <n>)。常駐はせず、呼ばれたときだけ動く。
+description: 秘書としてタスク全体を把握し振り分ける。claude-task の残タスク・返事待ち session・依頼中・epic の進み具合・ブロック状況を報告し、inbox の振り分けや優先度・メタ情報の整理を行う。「残タスクは？」「今どうなってる？」「タスクを整理して」などで使う。session の起動はしない (起動は /kidou <n>)。常駐はせず、呼ばれたときだけ動く。
 argument-hint: ""
 allowed-tools: Bash(claude-task *)
 ---
@@ -18,12 +18,14 @@ allowed-tools: Bash(claude-task *)
    - **優先度 1 (復旧) が未着手・ブロック中なら最初に書く**。未着手なら `/kidou <n>` での起動を提案する
    - 優先度 2 (優先) の返事待ち session は、待っている人がいるので返事待ちの中でも先に挙げる
    - **返事待ち (idle)**: ユーザーの番の session。最優先で示す (`tmux select-window -t <session_name>` で移動できる)
+   - **依頼中 (waiting)**: 他の人の返答待ち。`claude-task show` の log で依頼してからの日数を見て、数日動きが無いものは催促 (`/kidou <n>` で催促文作成) を提案する。返答済みと分かれば done を提案
    - **要確認**: running なのに session が終了済み。`claude-task show` の log と prs (`gh pr view` で merge 済みか) を見て、完了していそうなら `done` を、途中なら `/kidou <n>` での再起動を提案する (勝手に done にしない)。PR merge 後に done せず session を閉じたケースが多く、`done` すると worktree / branch の片付けも走る
    - **inbox**: dir 未定のタスク。body から dir を推定し、一意なら `claude-task set <id> dir=<dir>` を実行してよい。曖昧なものはまとめて AskUserQuestion で確認
    - **タスク外 session**: ユーザーが手動で立てた session。追跡したそうなら `claude-task adopt <name> [title]` を提案
    - **ブロック中 / 起動可能**: 件数と先頭数件。起動可能なものは `/kidou <n> ...` の形で提案する (自分では起動しない)
+   - **epic**: `claude-task tree` で各 epic の子の進み具合と依存を見て、「epic『…』は分析が終わり、次は『…』が起動可能」の粒度で 1 行ずつ報告する。子がすべて終わった epic は done を提案する
    - remote (claude.ai/code) session は local の registry に出ないため、PR 経由で追う (`claude-session-deps` が起動中ならそちら)。ListAgents で cloud session が見えれば補足として触れてよい
-3. **一覧表示**: 最後に `claude-task ls --table` の出力 (Markdown 表: タスク / session / 概要 / 状態) を **加工せずそのまま** 貼る。dir 設定などの操作をした後に取り直す。表は自分で組み立てない (並び順・状態ラベルは script が決める)
+3. **一覧表示**: 最後に `claude-task ls --table` の出力 (Markdown 表: タスク / 優先度 / 種別 / session / 概要 / 状態) を **加工せずそのまま** 貼る。dir 設定などの操作をした後に取り直す。表は自分で組み立てない (並び順・状態ラベルは script が決める)
    - **Slack 共有を求められたら**: `claude-task ls --slack` の出力 (mrkdwn。優先度ごとの見出し + 概要ごとの段落「お客さん名: 概要」+ 依存順のタスク名。番号・session・状態は出さない) を加工せずコードブロックで示し、`claude-task ls --slack | pbcopy` でコピーできると添える。Slack 用の文面も自分で組み立てない
 4. **idle 通知を受けたとき** (bankai session が生きていれば): `claude-task ls` を読み直し、そのタスクの状況 (返事待ちか、完了か) を 1 行で報告。完了で起動可能になったタスクがあれば `/kidou <n>` を提案する
 
@@ -34,6 +36,10 @@ allowed-tools: Bash(claude-task *)
 - 優先度の分類 (1 復旧 / 2 優先 / 3 目標 / 4 その他) が明らかに body と食い違うタスク (例: 脆弱性対応が 3) は、1 〜 3 の範囲の付け直しは `claude-task set <id> priority=<n>` で行ってよい (旧値は log に残る)。4 との出し入れはユーザーに確認する
 - customer / summary が空のタスクは、body から分かる範囲で `claude-task set <id> customer=<名前|全体> summary=<概要>` で埋めてよい。お客さん名が body から分からないものは空のまま報告し (Slack では「未確認」)、ユーザーに聞く。推測で埋めない
 - title が 30 字を超える・issue 番号始まりなど分かりにくいタスクを見つけたら、`claude-task set <id> title=<日本語10-30字>` で付け直してよい (旧 title は log に残る)
+
+- **種別 (type) の整理**: 種別追加前のタスクは作業 (work) 扱い。body・title から明らかに分析 (調査・検証・動作確認で PR を作らない) や依頼 (他者待ち) なものは `claude-task set <id> type=<analysis|request>` で付け直してよい (旧値は log に残る)。迷うものは触らない
+- **epic 化の提案**: epic に属さない未完了タスクのうち、同じ summary を持つものが 2 件以上ある、または blocked_by でつながっているものは、epic にまとめるとよい。勝手に作らず、「『<summary>』を epic にまとめますか」と提案し、合意したら `claude-task add --type epic --summary <summary> --customer <..> --dir <..> --priority <子の最小値> -- <title>` → 子に `claude-task set <id> parent=<epic>`
+- epic の順序 (子 B の後に子 C) は `blocked_by` で表す。順序が body から明らかで blocked_by が欠けていれば `claude-task set <C> blocked_by=<B>` を提案する
 
 - タスクファイルを直接編集しない。必ず `claude-task` のサブコマンドを使う
 - `done` / `drop` はユーザーの確認か、担当 session 自身の判断でのみ行う

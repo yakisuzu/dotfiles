@@ -1,7 +1,7 @@
 ---
 name: kidou
 description: claude-task の小回りの操作をまとめた入口。依頼文を渡すとタスクとして積み、番号 (`/kidou 20 23`) を渡すとそのタスクの session を起動する。「あとでやる」「TODO に積んで」「タスク追加」「T-20 起動して」「積んで起動して」などで使う。どの session からでも呼べる。全体の把握・振り分けは /bankai。
-argument-hint: "<n> [<n> ...] | [dir: <path>] [after: T-<n>,...] [p1|p2|p3|p4] [起動まで] <依頼文>"
+argument-hint: "<n> [<n> ...] | [type: 分析|作業|依頼|epic] [parent: T-<n>] [dir: <path>] [after: T-<n>,...] [p1|p2|p3|p4] [起動まで] <依頼文>"
 allowed-tools: Bash(claude-task *)
 model: sonnet
 ---
@@ -30,11 +30,15 @@ claude-task の小回りの操作 (積む・番号指定で起動する) を担�
 - モデルは delegate の既定 (sonnet)。ユーザーがモデルを明示したときだけ `model: <alias>` を足す
 - status が `inbox` (dir 未定) のタスクは起動できない。body から dir が一意に決まれば `claude-task set T-<n> dir=<dir>` してから起動し、決まらなければ報告して飛ばす
 - ブロック中 (blocked_by 未完了) と優先度 4 (その他) も番号指定なら起動してよい (明示指示のため)。1 行その旨を添える
+- 種別による違い (worktree を切るのは作業だけ、完了手順) は `launch-spec` と SessionStart の注入文が決める。kidou は種別で起動手順を変えない
+- 依頼中 (waiting) のタスクも起動できる (催促文の作成など)。epic は親 session として起動する
 - 起動後、その session に `SendMessage` の `notify_when_idle: true` を張る (この session が生きている間だけのベストエフォート)
 - 報告は window 名・作業 dir・依頼の要旨を 1 件 1-2 行で。最後に Step 6 の一覧を貼る
 
 ## Arguments (積む)
 
+- `type: 分析|作業|依頼|epic` — 任意。種別の明示。無ければ Step 1.5 で分類する
+- `parent: T-<n>` — 任意。所属する epic (epic の session から呼ぶときに付く)
 - `dir: <path>` — 任意。作業ディレクトリ。直後の 1 トークン
 - `after: T-1,T-2` — 任意。先に終わっている必要があるタスク (blocked_by)
 - `p1`〜`p4` — 任意。優先度の明示。無ければ Step 2.5 で分類する
@@ -45,12 +49,26 @@ claude-task の小回りの操作 (積む・番号指定で起動する) を担�
 ## Steps
 
 1. **title を作る**: 日本語 10-30 字で「何をするか」が分かる短い名詞句にする (例: `請求明細の税額カラム追加`)。issue 番号・PR 番号・repo 名は入れない (repo は一覧表に出る。番号は body に残す)。title は `/bankai` の報告でこのタスクを呼ぶ名前になる。依頼文そのものは `--body` に全文渡す (起動された session への最初のプロンプトになる。後から読んでも分かるよう、会話中の文脈 — issue 番号、ファイル、決定事項 — を補って自己完結させる)
+1.5. **種別を分類する** (`--type`。完了条件と起動時の worktree が変わる):
+
+   | type | 種別 | 該当する依頼 | 完了 |
+   |---|---|---|---|
+   | `analysis` | 分析 | 調査・分析・検証・動作確認・「問題ないか見て」。成果物が PR ではない | 結論 (問題なし / issue / Slack) を `done T-n <結論>` |
+   | `work` | 作業 | 実装・修正・設定変更・環境への適用・自分がするレビュー | PR / issue / Slack 報告 |
+   | `request` | 依頼 | 他の人にレビュー・作業・回答を頼んで待つ (「〇〇さんに頼んだ」「返事待ち」) | 返答を得て `done` |
+   | `epic` | epic | ユースケース単位で複数タスクを束ねる親 (「〇〇まわりをまとめて進める」) | 子がすべて終わったら `done` |
+
+   - 迷ったら work。依頼済み (相手に送った後) なら `--waiting-on <相手・URL>` を付ける (status が waiting になる)
+   - 1 つの依頼に「分析して、問題があれば直す」が含まれるなら、分析だけを積む (直す作業は分析の結論が出てから分析 session が積む)
+   - epic を作る依頼で子の作業が列挙されていれば、epic を先に積み、子を `--parent <epic>` で積む (順序があれば `--blocked-by`)
+   - `parent:` が無くても、依頼が既存 epic のユースケースに属するなら、その epic を parent にする (`claude-task tree` で確認)
 2. **dir を決める** (上から順に、一意に決まったら採用。決まらなければ空のまま = inbox):
    1. `dir:` の明示
    2. 依頼文に repo 名・issue URL・パスがある → `~/work/<org>/<repo>` 等の実在パスに解決 (`ls -d` で存在確認)
    3. 依頼が明らかに現在の repo に関するもの → 現在の repo のルート
    - 推測が 2 候補以上に割れる場合は **聞かずに空** にする (`/bankai` が判定する)
    - dir は `~` 始まりで渡す (ホームのフルパスをファイルに残さない)
+   - 送信済みの依頼 (`--waiting-on` あり) は session を起動しないことが多いため、dir が決まらなくても空でよい
 2.5. **優先度を分類する** (必ず `--priority` を渡す。CLI の既定は 4):
 
    | 優先度 | 分類 | 該当する作業 |
@@ -64,12 +82,12 @@ claude-task の小回りの操作 (積む・番号指定で起動する) を担�
    - 3 と 4 の区別がつかない場合は 4 にする (格上げはユーザーの判断。勝手に 3 にしない)
 2.6. **お客さん名 (`--customer`) と概要 (`--summary`) を決める** (Slack 報告は「お客さん名: 概要」で出る):
    - customer: 依頼文・issue に出てくるお客さん名 (「〇〇様」)。脆弱性・インフラ・CI など特定のお客さんに紐づかない作業は `全体`。分からなければ **空** (Slack では「未確認」と出る。推測で埋めない)
-   - summary: 機能単位の概要 (親 issue / ストーリーの名前に相当、20 字程度)。同じ機能を複数タスクに分けた場合は同じ summary にする (Slack で 1 段落にまとまり、依存順に並ぶ)。既存タスクに同じ機能のものがあれば、その summary に揃える (`claude-task ls --json` で確認)
+   - summary: 機能単位の概要 (親 issue / ストーリーの名前に相当、20 字程度)。epic には必ず付ける (Slack の段落見出しになる)。epic の子には不要 (Slack では epic 単位にまとまる)。epic に属さないタスクで、同じ機能を複数タスクに分けた場合は同じ summary にする。複数タスクに分かれる機能なら summary で揃えるより epic を作るのを優先する
 3. **重複確認**: `claude-task ls --all --json | jq -r '.tasks[] | select(.status != "done" and .status != "dropped") | "\(.id)\t\(.title)"'` を見て、同じ内容の未完了タスクがあれば追加せず既存 ID を報告する (内容を足したいなら `claude-task log <id> <追記>`)
 4. **追加**:
    ```bash
-   claude-task add [--dir <dir>] --priority <1-4> [--customer <名前|全体>] --summary <概要> [--blocked-by T-1,T-2] --body "<自己完結した依頼文>" -- "<title>"
+   claude-task add --type <analysis|work|request|epic> [--parent T-<n>] [--dir <dir>] --priority <1-4> [--customer <名前|全体>] [--summary <概要>] [--blocked-by T-1,T-2] [--waiting-on <相手・URL>] --body "<自己完結した依頼文>" -- "<title>"
    ```
    - 引数はシェルのクォートに注意 (依頼文に `"` や `$` が含まれる場合は heredoc で変数に入れてから渡す)
-5. **報告**: 1 行で `「<title>」を積みました (T-<n>、優先度 <n> <分類>、<repo or inbox>)` と返す。「積んで起動」でなければ、起動するなら `/kidou <n>` と添える
-6. **一覧表示**: どのモードでも最後に (起動後は取り直して) `claude-task ls --table` の出力 (Markdown 表: タスク / session / 概要 / 状態) を **加工せずそのまま** 貼る。表は自分で組み立てない
+5. **報告**: 1 行で `「<title>」を積みました (T-<n>、<種別>、優先度 <n> <分類>、<repo or inbox>)` と返す (epic の子なら「epic『…』の子」を添える)。「積んで起動」でなければ、起動するなら `/kidou <n>` と添える
+6. **一覧表示**: どのモードでも最後に (起動後は取り直して) `claude-task ls --table` の出力 (Markdown 表: タスク / 優先度 / 種別 / session / 概要 / 状態) を **加工せずそのまま** 貼る。表は自分で組み立てない

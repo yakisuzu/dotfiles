@@ -7,36 +7,47 @@
 # 設計: dotfiles/claude/docs/task-system-design.md
 #
 # Usage:
-#   claude-task add [--dir D] [--priority 1-4] [--customer C] [--summary S] [--blocked-by T-1,T-2] [--body TEXT] <title...>
+#   claude-task add [--type T] [--parent T-n] [--dir D] [--priority 1-4] [--customer C] [--summary S]
+#                   [--blocked-by T-1,T-2] [--waiting-on W] [--body TEXT] <title...>
+#                                    type (既定 work。成果物と完了条件で分ける):
+#                                      analysis 分析  成果物は結論 (問題なし / issue / Slack)。worktree を切らない。done には結論が必須
+#                                      work     作業  成果物は PR / issue / Slack 報告 (自分がするレビューも含む)。worktree を切る
+#                                      request  依頼  他者に作業・回答・レビューを依頼して待つ。--waiting-on (相手・URL) で waiting になる
+#                                      epic     epic  ユースケースごとの親。子 (--parent で指す) の完了が成果。子が残っていると done できない
+#                                    parent: 所属 epic (1 段のみ)。epic 内の順序は blocked_by で表す。子の一覧は保存せず導出する
 #                                    customer: お客さん名。プロダクト全体の作業は「全体」、未確認なら空 (Slack では「未確認」)
-#                                    summary: 機能単位の概要 (親 issue / ストーリー相当)。Slack 報告では同じ summary が 1 段落にまとまる。空なら title
+#                                    summary: 機能単位の概要。epic に属さないタスクだけ Slack 報告の段落になる (epic の子は epic 単位)。空なら title
 #                                    priority (既定 4):
 #                                      1 復旧   アラート・脆弱性・e2e/CI などテスト復旧 (プロダクト継続に問題がある作業)
 #                                      2 優先   問い合わせ対応・レビュー確認など (待っている人がいる作業)
 #                                      3 目標   月目標・顧客約束を含む、戦略的にやるべき作業
 #                                      4 その他 約束しておらず今ではない。着手するなら目標への格上げ調整が先 (自動起動しない)
-#                                    タスクを追加し ID を出力。dir 指定ありなら queued、無しなら inbox
+#                                    タスクを追加し ID を出力。--waiting-on ありなら waiting、dir 指定ありなら queued、無しなら inbox
 #   claude-task ls [--all] [--json|--table|--slack]
-#                                    状態別に一覧 (返事待ち/実行中/要確認/起動可能/ブロック中/inbox/タスク外 session)
-#                                    --table は Markdown 表 (タスク / 優先度 / session / 概要 / 状態)。/kidou・/bankai の実行後表示用
-#                                    --slack は Slack 報告用 mrkdwn (優先度ごとの見出し + 概要ごとの段落「お客さん名: 概要」。
+#                                    状態別に一覧 (返事待ち/実行中/要確認/依頼中/起動可能/ブロック中/inbox/タスク外 session)
+#                                    --table は Markdown 表 (タスク / 優先度 / 種別 / session / 概要 / 状態)。/kidou・/bankai の実行後表示用
+#                                    --slack は Slack 報告用 mrkdwn (優先度ごとの見出し + epic (無ければ概要) ごとの段落「お客さん名: 概要」。
 #                                    番号・session・状態は出さず、段落内のタスクは依存順に並べる)
+#   claude-task tree [<epic>]        epic の子を依存順の木で表示 (省略時は未完了の全 epic)
 #   claude-task show <id>            タスクの JSON を表示
-#   claude-task set <id> key=value.. 変更可能キー: title dir priority customer summary body blocked_by prs plan_topic status
+#   claude-task set <id> key=value.. 変更可能キー: title type parent dir priority customer summary body blocked_by prs result
+#                                    waiting_on plan_topic status
 #                                    (body は起動時の最初のプロンプト。変更すると log に記録する)
-#                                    (blocked_by/prs はカンマ区切り。inbox に dir を入れると queued になる)
+#                                    (blocked_by/prs はカンマ区切り。inbox に dir を入れると queued になる。waiting_on を入れると waiting になる)
 #   claude-task log <id> <msg...>    ログ追記
 #   claude-task link <id> <session_id> [session_name]
 #                                    session と紐付けて running にする (SessionStart hook が呼ぶ)
 #   claude-task adopt <session名|session_id> [title...]
 #                                    タスク外の live session を running タスクとして取り込む
-#   claude-task done <id> / drop <id>
-#                                    完了 / 取り下げ。直後に起動可能になったタスクを表示し、タスクの repo ルートで
+#   claude-task done <id> [result...] / drop <id>
+#                                    完了 / 取り下げ。result を渡すと記録する (analysis は result 必須、epic は子が残っていると拒否)。
+#                                    直後に起動可能になったタスクと done 候補の epic を表示し、タスクの repo ルートで
 #                                    delete_git_merged_branch.sh を実行して merge 済み branch と worktree を片付ける
 #                                    (cwd が worktree 内なら実行せず案内のみ)
 #   claude-task launch-spec <id>     起動仕様を JSON で出力 {id, dir, worktree, prompt}。dir は本体 repo のルート、
-#                                    prompt には「起動後に EnterWorktree (name: task-<n>) で worktree を切る」指示を埋め込む
-#                                    (git 外の dir では worktree 指示なし)。/kidou <n> (内部で /delegate task:) はこれをそのまま使う
+#                                    work は prompt に「起動後に EnterWorktree (name: task-<n>) で worktree を切る」指示を埋め込む
+#                                    (work 以外と git 外の dir では worktree 指示なし)。/kidou <n> (内部で /delegate task:) はこれをそのまま使う
+#   claude-task brief <id>           担当 session に注入する 1 行 (種別ごとの完了手順と親 epic)。SessionStart hook が使う
 #   claude-task id-of-session <session_id>
 #                                    session に紐付くタスク ID を出力 (無ければ空)
 
@@ -108,6 +119,32 @@ warn_title() {
 
 csv_to_json() {
   jq -nc --arg s "$1" '$s | split(",") | map(gsub("^\\s+|\\s+$"; "")) | map(select(. != ""))'
+}
+
+TYPES="analysis work request epic"
+
+# 種別追加前のタスクは type / parent / result / waiting_on を持たないため、読むときに既定値で補う (ファイルは書き換えない)
+JQ_NORM='def norm: . + {type: (.type // "work"), parent: (.parent // ""), result: (.result // ""), waiting_on: (.waiting_on // "")};'
+
+task_field() { jq -r "$JQ_NORM"' norm | .'"$2" "$(task_file "$1")"; }
+
+check_type() {
+  [[ " $TYPES " == *" $1 "* ]] || die "type は $TYPES のいずれか (analysis 分析 / work 作業 / request 依頼 / epic)"
+}
+
+# parent は epic に限り、epic 自身は parent を持てない (1 段のみ)
+check_parent() {
+  local id="$1" type="$2" parent="$3"
+  [ -n "$parent" ] || return 0
+  require_task "$parent"
+  [ "$parent" != "$id" ] || die "自分自身を parent にはできません"
+  [ "$(task_field "$parent" type)" = epic ] || die "parent は epic のみ: $parent は $(task_field "$parent" type)"
+  [ "$type" != epic ] || die "epic は parent を持てません (epic は 1 段のみ)"
+}
+
+# 指定 epic を parent に持つタスク (done / dropped を含む)
+children_of() {
+  all_tasks_json | jq -r --arg p "$1" "$JQ_NORM"'.[] | norm | select(.parent == $p) | .id'
 }
 
 # ---------------------------------------------------------------------------
@@ -200,19 +237,24 @@ enriched_json() {
   gmap=$(group_map_json)
   rmap=$(repo_map_json "$tasks" "$live")
   jq -n --argjson tasks "$tasks" --argjson live "$live" --argjson gmap "$gmap" --argjson rmap "$rmap" \
-    --arg home "$HOME" --arg self "${CLAUDE_CODE_SESSION_ID:-}" '
+    --arg home "$HOME" --arg self "${CLAUDE_CODE_SESSION_ID:-}" "$JQ_NORM"'
     def expand: if startswith("~/") then $home + .[1:] elif . == "~" then $home else . end;
     def group_of: (expand) as $d
       | [$gmap[] | . as $m | select(($d | endswith("/" + $m.pattern)) or ($d | contains("/" + $m.pattern + "/")))]
       | sort_by(.pattern | length) | last | (.group // "");
-    ($tasks | map({key: .id, value: .status}) | from_entries) as $st
+    ($tasks | map(norm)) as $tasks
+    | ($tasks | map({key: .id, value: .status}) | from_entries) as $st
     | ($tasks | map(select(.session_id != "") | .session_id)) as $linked
     | ($tasks | map(
         . as $t
         | ([$live[] | select(.sessionId == $t.session_id)] | first) as $s
+        | ([$tasks[] | select(.parent == $t.id) | .id]) as $kids
         | . + {
             live: (if $t.session_id == "" then "" elif $s then $s.status else "exited" end),
             blocking: [$t.blocked_by[] | select(($st[.] // "missing") as $x | $x != "done" and $x != "dropped")],
+            # epic の子 (保存せず parent から導出)。kids_open は未完了の子
+            kids: $kids,
+            kids_open: [$kids[] | select($st[.] != "done" and $st[.] != "dropped")],
             repo: (if $t.dir == "" then "" else ($rmap[$t.dir] // "") end),
             group: (if $t.dir == "" then "" else ($t.dir | group_of) end)
           }
@@ -228,9 +270,12 @@ enriched_json() {
 # subcommands
 # ---------------------------------------------------------------------------
 cmd_add() {
-  local dir="" priority=4 blocked="" body="" customer="" summary="" title
+  local dir="" priority=4 blocked="" body="" customer="" summary="" type=work parent="" waiting_on="" title
   while [ $# -gt 0 ]; do
     case "$1" in
+      --type) type="$2"; shift 2 ;;
+      --parent) parent="$2"; shift 2 ;;
+      --waiting-on) waiting_on="$2"; shift 2 ;;
       --dir) dir="$2"; shift 2 ;;
       --priority) priority="$2"; shift 2 ;;
       --blocked-by) blocked="$2"; shift 2 ;;
@@ -246,6 +291,8 @@ cmd_add() {
   [ -n "$title" ] || die "add: title が必要です"
   warn_title "$title"
   [[ "$priority" =~ ^[1-4]$ ]] || die "add: priority は 1-4 (1 復旧 / 2 優先 / 3 目標 / 4 その他)"
+  check_type "$type"
+  check_parent "" "$type" "$parent"
   [ -n "$body" ] || body="$title"
   if [ -n "$dir" ]; then
     [ -d "$(expand_dir "$dir")" ] || die "add: dir が存在しません: $dir"
@@ -261,19 +308,23 @@ cmd_add() {
   seq=$(( $(cat "$SEQ_FILE" 2>/dev/null || echo 0) + 1 ))
   echo "$seq" >"$SEQ_FILE"
   id="T-$seq"
-  status=$([ -n "$dir" ] && echo queued || echo inbox)
+  if [ -n "$waiting_on" ]; then status=waiting
+  elif [ -n "$dir" ]; then status=queued
+  else status=inbox; fi
   jq -n --arg id "$id" --arg title "$title" --arg status "$status" --arg dir "$dir" \
     --argjson priority "$priority" --argjson blocked "$blocked_json" --arg body "$body" \
     --arg customer "$customer" --arg summary "$summary" \
+    --arg type "$type" --arg parent "$parent" --arg waiting_on "$waiting_on" \
     --arg now "$(now)" --arg msg "add$(caller_tag)" '{
-      id: $id, title: $title, status: $status, dir: $dir, priority: $priority, customer: $customer, summary: $summary,
-      blocked_by: $blocked, session_name: "", session_id: "", prs: [], plan_topic: "",
+      id: $id, type: $type, parent: $parent, title: $title, status: $status, dir: $dir, priority: $priority,
+      customer: $customer, summary: $summary,
+      blocked_by: $blocked, waiting_on: $waiting_on, result: "", session_name: "", session_id: "", prs: [], plan_topic: "",
       body: $body, log: [{at: $now, msg: $msg}], created: $now, updated: $now
     }' >"$(task_file "$id")"
   echo "$id"
 }
 
-STATUSES="inbox queued running done dropped"
+STATUSES="inbox queued running waiting done dropped"
 
 cmd_set() {
   local id="$1"; shift
@@ -289,6 +340,25 @@ cmd_set() {
         [ -n "$val" ] || die "set: title は空にできません"
         warn_title "$val"
         update_task "$id" '.log += [{at: $now, msg: ("title: " + .title + " -> " + $v)}] | .title = $v' --arg v "$val" ;;
+      type)
+        check_type "$val"
+        if [ "$val" = epic ]; then
+          [ -z "$(task_field "$id" parent)" ] || die "set: parent を持つタスクは epic にできません (先に parent= で外す)"
+        elif [ -n "$(children_of "$id")" ]; then
+          die "set: 子を持つ epic は種別を変えられません (子: $(children_of "$id" | paste -sd, -))"
+        fi
+        update_task "$id" '.log += [{at: $now, msg: ("type: " + (.type // "work") + " -> " + $v)}] | .type = $v' --arg v "$val" ;;
+      parent)
+        check_parent "$id" "$(task_field "$id" type)" "$val"
+        update_task "$id" '.log += [{at: $now, msg: ("parent: " + (.parent // "") + " -> " + $v)}] | .parent = $v' --arg v "$val" ;;
+      result)
+        update_task "$id" '.result = $v | .log += [{at: $now, msg: ("result: " + $v)}]' --arg v "$val" ;;
+      waiting_on)
+        # 依頼を送ったら相手待ち (waiting) にする。空にしても status は戻さない (再開は status= で明示)
+        update_task "$id" '
+          .waiting_on = $v
+          | if $v != "" and (.status != "done" and .status != "dropped") then .status = "waiting" else . end
+          | .log += [{at: $now, msg: ("waiting_on: " + $v)}]' --arg v "$val" ;;
       plan_topic)
         update_task "$id" '.plan_topic = $v' --arg v "$val" ;;
       customer|summary)
@@ -369,14 +439,22 @@ cmd_adopt() {
 cmd_launch_spec() {
   local id="$1"
   require_task "$id"
-  local t dir status root wt prompt
-  t=$(jq -c . "$(task_file "$id")")
-  dir=$(jq -r .dir <<<"$t"); status=$(jq -r .status <<<"$t")
+  local t dir status type root wt prompt
+  t=$(jq -c "$JQ_NORM norm" "$(task_file "$id")")
+  dir=$(jq -r .dir <<<"$t"); status=$(jq -r .status <<<"$t"); type=$(jq -r .type <<<"$t")
   [ -n "$dir" ] || die "launch-spec: $id は dir 未定です (claude-task set $id dir=...)"
   case "$status" in done|dropped) die "launch-spec: $id は $status です" ;; esac
   root=$(repo_root_of_dir "$dir")
   wt=""
-  if [ -n "$root" ]; then
+  if [ -n "$root" ] && [ "$type" != work ]; then
+    # 分析・依頼・epic はコードを変えないため worktree を切らない (完了手順は SessionStart の brief が注入する)
+    prompt="[$id] worktree は作らず、本体 repo のまま作業してください (種別 $type はコードを変更しないため)。"
+    local prefix
+    prefix=$(git -C "$(expand_dir "$dir")" rev-parse --show-prefix 2>/dev/null || true)
+    if [ -n "$prefix" ]; then
+      prompt+=" 対象は repo 内の ${prefix%/} です。"
+    fi
+  elif [ -n "$root" ]; then
     wt="task-${id#T-}"
     prompt="[$id] 作業を始める前に EnterWorktree (name: $wt) で worktree を作成し、以降はその中で作業してください。この worktree 作成は /kidou からの起動指示のため、Worktree Rule の /wt による確認は不要です。"
     # repo 内のサブディレクトリ (monorepo 等) は worktree 内の同じ相対パスを案内する。worktree 自体を指す dir でも正しく取れるよう show-prefix を使う
@@ -392,6 +470,33 @@ cmd_launch_spec() {
   prompt+=$'\n\n'"$(jq -r .body <<<"$t")"
   jq -n --arg id "$id" --arg dir "$root" --arg wt "$wt" --arg prompt "$prompt" \
     '{id: $id, dir: $dir, worktree: $wt, prompt: $prompt}'
+}
+
+# 担当 session に注入する 1 行 (SessionStart hook が使う)。完了の仕方は種別で変わるため、文面を script で決める
+cmd_brief() {
+  local id="$1"
+  require_task "$id"
+  local type parent msg
+  type=$(task_field "$id" type); parent=$(task_field "$id" parent)
+  msg="Task: この session は ${id} ($(type_label "$type")) を担当 (\`claude-task show ${id}\`)。"
+  case "$type" in
+    analysis)
+      msg+="コードは変更しない。結論が出たら \`claude-task done ${id} <問題なし|issue や Slack の URL>\` で閉じる。修正が要ると分かったら /kidou で作業タスクとして積む" ;;
+    request)
+      msg+="依頼を送ったら \`claude-task set ${id} waiting_on=<相手・依頼先 URL>\`、返答を得たら \`claude-task done ${id} <返答の要旨か URL>\`" ;;
+    epic)
+      msg+="epic の親 session。\`claude-task tree ${id}\` で子と依存を把握し、子は \`/kidou parent: ${id} <依頼文>\` で積み、起動は \`/kidou <n>\` をユーザーに提案する (自分では実装しない)。子がすべて終わったら \`claude-task done ${id}\`" ;;
+    *)
+      msg+="PR を作ったら \`claude-task set ${id} prs=<owner/repo#N>\`、完了したら \`claude-task done ${id}\` (PR 以外の成果物は \`done ${id} <URL>\`)" ;;
+  esac
+  if [ -n "$parent" ]; then
+    msg+="。親 epic: ${parent}「$(task_field "$parent" title)」(\`claude-task tree ${parent}\`)。派生タスクは \`/kidou parent: ${parent} ...\` で同じ epic に積む"
+  fi
+  echo "$msg"
+}
+
+type_label() {
+  case "$1" in analysis) echo "分析" ;; request) echo "依頼" ;; epic) echo "epic" ;; *) echo "作業" ;; esac
 }
 
 cmd_id_of_session() {
@@ -424,23 +529,50 @@ cleanup_merged() {
 }
 
 cmd_finish() {
-  local id="$1" to="$2"
+  local id="$1" to="$2"; shift 2
   require_task "$id"
+  local result="$*" type open
+  type=$(task_field "$id" type)
+  [ -n "$result" ] || result=$(task_field "$id" result)
+  if [ "$to" = "done" ]; then
+    case "$type" in
+      analysis)
+        [ -n "$result" ] || die "done: 分析は結論が必須です (claude-task done $id <問題なし|issue や Slack の URL>)" ;;
+      epic)
+        open=$(enriched_json | jq -r --arg id "$id" '.tasks[] | select(.id == $id) | .kids_open | join(",")')
+        [ -z "$open" ] || die "done: 未完了の子があります ($open)。終えるか drop してから done する" ;;
+      work)
+        if [ -z "$result" ] && [ "$(task_field "$id" 'prs | length')" = 0 ]; then
+          echo "claude-task: warning: $id に prs も result もありません (PR 以外の成果物なら claude-task done $id <URL>)" >&2
+        fi ;;
+    esac
+  fi
   lock
-  update_task "$id" '.status = $v | .log += [{at: $now, msg: ($v + $tag)}]' --arg v "$to" --arg tag "$(caller_tag)"
+  update_task "$id" '.status = $v | .result = $r | .log += [{at: $now, msg: ($v + (if $r != "" then ": " + $r else "" end) + $tag)}]' \
+    --arg v "$to" --arg r "$result" --arg tag "$(caller_tag)"
   rmdir "$LOCK_DIR" 2>/dev/null || true
   cleanup_merged "$id"
-  local unblocked
+  local unblocked parent epic_done=""
   unblocked=$(next_json | jq -r --arg id "$id" '.[] | select(.blocked_by | index($id)) | "  \(.id) \(.title)"')
+  parent=$(task_field "$id" parent)
+  if [ -n "$parent" ]; then
+    epic_done=$(enriched_json | jq -r --arg p "$parent" '.tasks[] | select(.id == $p and (.kids_open | length) == 0
+      and .status != "done" and .status != "dropped") | "  \(.id) \(.title) (claude-task done \(.id))"')
+  fi
   echo "$id -> $to"
   if [ -n "$unblocked" ]; then
     echo "起動可能になったタスク:"
     echo "$unblocked"
   fi
+  if [ -n "$epic_done" ]; then
+    echo "子がすべて終わった epic (done 候補):"
+    echo "$epic_done"
+  fi
 }
 
-# priority の表示ラベル (jq 定義。各 jq プログラムの先頭に連結して使う)
-JQ_PRIO='def plabel: {"1": "1 復旧", "2": "2 優先", "3": "3 目標", "4": "4 その他"}[tostring] // ("P" + tostring);'
+# priority / type の表示ラベル (jq 定義。各 jq プログラムの先頭に連結して使う)
+JQ_PRIO='def plabel: {"1": "1 復旧", "2": "2 優先", "3": "3 目標", "4": "4 その他"}[tostring] // ("P" + tostring);
+def tlabel: {"analysis": "🔍 分析", "work": "🔧 作業", "request": "📨 依頼", "epic": "📦 epic"}[.] // .;'
 
 # 端末での表示幅 (全角 = 2)。ls の桁揃えに使う。jq に wcwidth が無いため主要な全角範囲を判定する
 JQ_WIDTH='
@@ -457,6 +589,7 @@ def state($titles):
     (if .live == "idle" or .live == "waiting" then [0, "返事待ち", ""]
      elif .live == "exited" or .live == "" then [1, "要確認 (session 終了)", ""]
      else [2, "実行中", ""] end)
+  elif .status == "waiting" then [2.5, "依頼中", (if .waiting_on != "" then .waiting_on + " 待ち" else "相手待ち" end)]
   elif (.status == "queued" or .status == "inbox") and (.blocking | length) > 0 then [4, "ブロック中", ((.blocking | map("「" + ($titles[.] // .) + "」") | join("・")) + " 待ち")]
   elif .status == "queued" and .priority == 4 then [3.5, "保留 (着手するなら目標へ格上げ)", ""]
   elif .status == "queued" then [3, "起動可能", ""]
@@ -464,6 +597,9 @@ def state($titles):
   elif .status == "done" then [6, "完了", ""]
   else [7, "取り下げ", ""] end;
 def where: if .repo == "" then "" elif .group != "" and .group != .repo then " [" + .group + "/" + .repo + "]" else " [" + .repo + "]" end;
+# epic は子の進捗、子は所属 epic を概要に添える
+def rel($titles): if .type == "epic" then " (子 \((.kids | length) - (.kids_open | length))/\(.kids | length) 完了)"
+  elif .parent != "" then " ⊂「" + ($titles[.parent] // .parent) + "」" else "" end;
 '
 
 # Slack 報告用 (mrkdwn)。Slack は Markdown 表を描画しないため箇条書きにする。
@@ -477,15 +613,21 @@ slack_view() {
     def esc: tostring | gsub("&"; "&amp;") | gsub("<"; "&lt;") | gsub(">"; "&gt;") | gsub("\n"; " ");
     def corder: if . == "全体" then 0 elif . == "未確認" then 2 else 1 end;
     (.tasks | map({key: .id, value: .title}) | from_entries) as $titles
-    | [.tasks[] | select(.status != "done" and .status != "dropped")
+    | (.tasks | map({key: .id, value: .}) | from_entries) as $byid
+    # epic の子は epic 単位 (見出しは epic の summary、無ければ epic の title。お客さん名は epic のものを優先し、空なら子のもの)。
+    # epic 自身は行に出さず、epic に属さないタスクは従来どおり summary 単位
+    | [.tasks[] | select(.status != "done" and .status != "dropped" and .type != "epic")
+      | ($byid[.parent] // null) as $e
       | {id, title, priority, created, blocking,
-         customer: (if (.customer // "") == "" then "未確認" else .customer end),
-         summary: (if (.summary // "") == "" then .title else .summary end)}] as $live
+         customer: (if ($e.customer // "") != "" then $e.customer elif (.customer // "") != "" then .customer else "未確認" end),
+         summary: (if $e then (if ($e.summary // "") != "" then $e.summary else $e.title end)
+                   elif (.summary // "") == "" then .title else .summary end),
+         key: (if $e then "E:" + $e.id elif (.summary // "") == "" then "S:" + .title else "S:" + .summary end)}] as $live
     | if ($live | length) == 0 then "(タスクなし)"
       else
         $live | group_by(.priority)[]
         | "*\(.[0].priority | plabel)*",
-          (group_by(.summary)
+          (group_by(.key)
            # 「全体」だけの段落を先頭、「未確認」だけの段落を末尾、ほかは最初のタスクの作成順
            | sort_by((map(.customer | corder) | min), (map(.created) | min))[]
            | sort_by(.created) as $g
@@ -504,8 +646,8 @@ slack_view() {
       end'
 }
 
-# /kidou・/bankai の実行後にそのまま貼る Markdown 表 (タスク番号 / session 名 / 概要 / 状態)。
-# 並びはユーザーの対応が要る順 (返事待ち → 要確認 → 実行中 → 起動可能 → 保留(優先度4) → ブロック中 → inbox → 完了/取り下げ)、
+# /kidou・/bankai の実行後にそのまま貼る Markdown 表 (タスク番号 / 優先度 / 種別 / session 名 / 概要 / 状態)。
+# 並びはユーザーの対応が要る順 (返事待ち → 要確認 → 実行中 → 依頼中 → 起動可能 → 保留(優先度4) → ブロック中 → inbox → 完了/取り下げ)、
 # 同じ状態内は priority → created。タスク外 session は ID "-" で末尾に出す
 table_view() {
   jq -r "$JQ_PRIO$JQ_STATE"'
@@ -514,10 +656,38 @@ table_view() {
     | ([.tasks[] | . + {st: state($titles)}] | sort_by(.st[0], .priority, .created)) as $rows
     | if ($rows | length) == 0 and (.untracked | length) == 0 then "(タスクなし)"
       else
-        "| タスク | 優先度 | session | 概要 | 状態 |",
-        "|---|---|---|---|---|",
-        ($rows[] | "| \(.id) | \(.priority | plabel) | \(if .session_name != "" then .session_name else "-" end | cell) | \((.title + where) | cell) | \(.st[1])\(if .st[2] != "" then " (" + .st[2] + ")" else "" end) |"),
-        (.untracked[] | "| - | - | \(if .name != "" then .name else .sessionId[0:8] end | cell) | (タスク外)\(where | cell) | \(if .status == "idle" or .status == "waiting" then "返事待ち" else "実行中" end) |")
+        "| タスク | 優先度 | 種別 | session | 概要 | 状態 |",
+        "|---|---|---|---|---|---|",
+        ($rows[] | "| \(.id) | \(.priority | plabel) | \(.type | tlabel) | \(if .session_name != "" then .session_name else "-" end | cell) | \((.title + where + rel($titles)) | cell) | \(.st[1])\(if .st[2] != "" then " (" + .st[2] + ")" else "" end | cell) |"),
+        (.untracked[] | "| - | - | - | \(if .name != "" then .name else .sessionId[0:8] end | cell) | (タスク外)\(where | cell) | \(if .status == "idle" or .status == "waiting" then "返事待ち" else "実行中" end) |")
+      end'
+}
+
+# epic の依存ツリー。子 (done / dropped を含む) を、epic 内の最初の待ち先の下に字下げして並べる
+# (slack の段落と同じ規則。2 件目以降の待ち先と epic 外の待ち先は「(「…」の後)」)。epic 省略時は未完了の全 epic
+cmd_tree() {
+  local target="${1:-}"
+  if [ -n "$target" ]; then
+    require_task "$target"
+    [ "$(task_field "$target" type)" = epic ] || die "tree: $target は epic ではありません"
+  fi
+  enriched_json | jq -r --arg target "$target" "$JQ_PRIO$JQ_STATE"'
+    (.tasks | map({key: .id, value: .title}) | from_entries) as $titles
+    | .tasks as $all
+    | [$all[] | select(.type == "epic" and (if $target != "" then .id == $target else (.status != "done" and .status != "dropped") end))]
+    | if length == 0 then "(epic なし)" else .[] |
+        . as $e
+        | ([$all[] | select(.parent == $e.id)] | sort_by(.created)) as $g
+        | ($g | map(.id)) as $ids
+        | def parent: [.blocked_by[] | select(. as $b | $ids | index($b))][0];
+          def outer: parent as $p | [.blocked_by[] | select(. != $p) | "「" + ($titles[.] // .) + "」"];
+          def line($depth): (if $depth == 0 then "  • " else "  " + ("    " * $depth) + "↳ " end)
+            + "\(.id) \(.type | tlabel) \(.title)" + (outer as $o | if ($o | length) > 0 then " (" + ($o | join("・")) + " の後)" else "" end)
+            + " — " + (state($titles) | .[1] + (if .[2] != "" and .[1] != "ブロック中" then " (" + .[2] + ")" else "" end));
+          def tree($depth): . as $t | line($depth), ($g[] | select(parent == $t.id) | tree($depth + 1));
+          "\($e.id) \($e.type | tlabel) \($e.title)\($e | rel($titles)) — \($e | state($titles) | .[1])",
+          (if ($g | length) == 0 then "  (子なし: /kidou parent: \($e.id) <依頼文> で積む)" else ($g[] | select(parent == null) | tree(0)) end),
+          ""
       end'
 }
 
@@ -539,18 +709,20 @@ cmd_ls() {
   if [ -n "$table" ]; then table_view <<<"$e"; return; fi
   if [ -n "$slack" ]; then slack_view <<<"$e"; return; fi
 
-  jq -r "$JQ_PRIO$JQ_WIDTH"'
-    def where: if .repo == "" then "" elif .group != "" and .group != .repo then " [" + .group + "/" + .repo + "]" else " [" + .repo + "]" end;
+  jq -r "$JQ_PRIO$JQ_WIDTH$JQ_STATE"'
     (.tasks | map({key: .id, value: .title}) | from_entries) as $titles
-    # 1 行 = [タスク, 優先度, session, 概要, 補足]。補足 (ブロック先 / session 状態) は最終列なので揃えない
-    | def row: [.id, (.priority | plabel), (if .session_name != "" then .session_name else "-" end), (.title + where),
-                (if (.blocking | length) > 0 then "⛔ " + (.blocking | map("「" + ($titles[.] // .) + "」") | join("・")) + " 待ち" else "" end)];
-      def urow: ["-", "-", (if .name != "" then .name else .sessionId[0:8] end), ("(タスク外)" + where), .status];
+    # 1 行 = [タスク, 優先度, 種別, session, 概要, 補足]。補足 (ブロック先 / 依頼先) は最終列なので揃えない
+    | def row: [.id, (.priority | plabel), (.type | tlabel), (if .session_name != "" then .session_name else "-" end),
+                (.title + where + rel($titles)),
+                (if (.blocking | length) > 0 then "⛔ " + (.blocking | map("「" + ($titles[.] // .) + "」") | join("・")) + " 待ち"
+                 elif .status == "waiting" and .waiting_on != "" then "📨 " + .waiting_on + " 待ち" else "" end)];
+      def urow: ["-", "-", "-", (if .name != "" then .name else .sessionId[0:8] end), ("(タスク外)" + where), .status];
     .tasks as $t
     | [
         ["返事待ち (idle/waiting)", ([$t[] | select(.status == "running" and (.live == "idle" or .live == "waiting"))] | sort_by(.priority, .created) | map(row))],
         ["実行中 (busy)", ([$t[] | select(.status == "running" and ([.live] | inside(["idle", "waiting", "exited", ""]) | not))] | sort_by(.priority, .created) | map(row))],
         ["要確認 (session 終了済み / 未紐付けの running)", ([$t[] | select(.status == "running" and (.live == "exited" or .live == ""))] | map(row))],
+        ["依頼中 (相手待ち)", ([$t[] | select(.status == "waiting")] | sort_by(.priority, .created) | map(row))],
         ["起動可能", ([$t[] | select(.status == "queued" and .priority < 4 and (.blocking | length) == 0)] | sort_by(.priority, .created) | map(row))],
         ["保留 (4 その他。着手するなら目標へ格上げ)", ([$t[] | select(.status == "queued" and .priority == 4 and (.blocking | length) == 0)] | sort_by(.created) | map(row))],
         ["ブロック中", ([$t[] | select((.status == "queued" or .status == "inbox") and (.blocking | length) > 0)] | sort_by(.priority, .created) | map(row))],
@@ -560,15 +732,15 @@ cmd_ls() {
         ["タスク外 session — claude-task adopt <name> で取り込み", ([.untracked[] | urow])]
       ]
     | map(select((.[1] | length) > 0)) as $sections
-    # 全セクション共通の列幅 (先頭 4 列。見出し行も含める)
-    | ([["タスク", "優先度", "session", "概要"]] + [$sections[] | .[1][]]) as $all
-    | [range(0; 4) as $i | [$all[] | .[$i] | dwidth] | max] as $w
-    | def fmt: [range(0; 4) as $i | .[$i] | pad($w[$i])] + [.[4]] | join("  ") | sub("\\s+$"; "");
+    # 全セクション共通の列幅 (先頭 5 列。見出し行も含める)
+    | ([["タスク", "優先度", "種別", "session", "概要"]] + [$sections[] | .[1][]]) as $all
+    | [range(0; 5) as $i | [$all[] | .[$i] | dwidth] | max] as $w
+    | def fmt: [range(0; 5) as $i | .[$i] | pad($w[$i])] + [.[5]] | join("  ") | sub("\\s+$"; "");
       if ($sections | length) == 0 then "(タスクなし)"
       else
         $sections[]
         | "■ \(.[0]) (\(.[1] | length))",
-          ("  " + (["タスク", "優先度", "session", "概要", ""] | fmt)),
+          ("  " + (["タスク", "優先度", "種別", "session", "概要", ""] | fmt)),
           (.[1][] | "  " + fmt),
           ""
       end
@@ -586,8 +758,10 @@ main() {
     log) cmd_log "${1:-}" "${@:2}" ;;
     link) cmd_link "${1:-}" "${2:-}" "${3:-}" ;;
     adopt) cmd_adopt "$@" ;;
-    done) cmd_finish "${1:-}" "done" ;;
-    drop) cmd_finish "${1:-}" dropped ;;
+    done) cmd_finish "${1:-}" "done" "${@:2}" ;;
+    drop) cmd_finish "${1:-}" dropped "${@:2}" ;;
+    tree) cmd_tree "${1:-}" ;;
+    brief) cmd_brief "${1:-}" ;;
     id-of-session) cmd_id_of_session "${1:-}" ;;
     launch-spec) cmd_launch_spec "${1:-}" ;;
     -h|--help|help) sed -n '2,/^$/p' "$0" | sed 's/^# \{0,1\}//' ;;
