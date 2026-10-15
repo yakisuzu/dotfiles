@@ -23,19 +23,24 @@
 - **保存**: 意図と関係 (依頼文、dir、priority、blocked_by、担当 session、PR、status = inbox/queued/running/done/dropped)。
 - **導出 (保存しない)**: session の生死・busy/idle (`~/.claude/sessions/*.json`、非公式フォーマット)、ブロック中か (blocked_by の status)、repo 名 (dir の git-common-dir)、プロダクト group (`CLAUDE.local.md` の Plan Group mapping)。
 - **理由**: 導出できる値を保存すると実態とずれる。session-deps v3 と同じ方針。idle をそのまま「ユーザーの番」と表示するのは近似 (単に作業が終わっただけの idle もある)。
-- **ID に分類を入れない理由**: 追加時点では dir 未定のことがあり、複数 repo 跨ぎや途中移動もある。分類は `ls --group/--repo` で表示時に行う。
+- **title は人に伝える名前**: 日本語 10-30 字の短い名詞句で、issue 番号・repo 名は入れない (repo は表示時に導出、番号は body)。`/bankai` の報告文ではタスクを番号ではなく title で呼ぶ (番号だけではユーザーに伝わらない)。CLI は長さの目安外を警告のみ (adopt の仮 title が session 名になるため拒否しない)、title 変更は旧値を log に残す。
+- **priority は作業の分類**: 1 復旧 (アラート・脆弱性・テスト復旧) / 2 優先 (問い合わせ・レビュー) / 3 目標 (月目標・顧客約束を含む戦略的作業。表示ラベルは「3 月」と読まれないよう「目標」) / 4 その他 (今ではない)。4 は `/bankai` が起動を提案しない (着手には目標への格上げ調整が要るため)。CLI の既定は 4 (未分類を急ぎ扱いしない)。優先度変更は旧値を log に残す。
+- **customer / summary は報告用**: Slack 報告の相手 (チーム) にとってタスク番号・session・作業状態や細かいタスク名は意味がなく、知りたいのは「どの優先度で、どのお客さんの、どの機能を進めているか」。そのため `ls --slack` は優先度で見出しを切り、summary (機能) ごとに「お客さん名: 概要」の段落を出す。段落内のタスクは依存 (blocked_by) が分かるように、待っているタスクを待ち先の下に字下げして並べる (段落外の待ち先は「(「…」の後)」)。タスクが 1 件だけで段落外の待ちも無い段落は見出し行だけにする。customer は特定顧客に紐づかない作業を「全体」、未確認を空 (表示「未確認」) として区別する。
+- **ID に分類を入れない理由**: 追加時点では dir 未定のことがあり、複数 repo 跨ぎや途中移動もある。分類 (group / repo) は表示時に dir から導出し、一覧の各行に `[group/repo]` として出す。
 
 ## 4. 秘書は常駐しない
 
 - **決定**: `/bankai` は呼ばれたときだけ秘書として振る舞う。常駐 session は置かない。
-- **理由**: 常駐が必要に見える機能はすべて代替できる。dir 判定は `/kidou` を呼んだ session がその場で行い、次の起動は `claude-task done` が候補を表示し、残タスク一覧は `ls` が毎回導出する。秘書の会話コンテキストに状態を持たせると compact / 終了で失われる。
+- **理由**: 常駐が必要に見える機能はすべて代替できる。dir 判定は `/kidou` を呼んだ session がその場で行い、次の起動候補は `claude-task done` が表示し、残タスク一覧は `ls` が毎回導出する。秘書の会話コンテキストに状態を持たせると compact / 終了で失われる。
 - `notify_when_idle` は bankai session が生きている間だけのベストエフォート。正は常に claude-task。
 - hook から session を自動起動することはしない (挙動が見えにくく、誤った振り分けの被害が大きい)。
 
-## 5. 自動起動の上限は「自動」だけのゲート
+## 5. 起動は番号指定だけ。小回りは kidou、全体は bankai
 
-- **決定**: `claude-task next --auto` が空き枠 (`CLAUDE_TASK_MAX_RUNNING`、既定 6 から生存中の running タスク数を引いた数) の分だけ返す。`/bankai go` はこれが返したものだけを起動し、件数を LLM が判断しない。ユーザーが ID を指定した明示的な起動は上限を無視する。
-- **理由**: bankai を呼ぶと積んだタスクがすべて立ち上がるのは困る。一方で、remote の issue-to-pr のように意図して 5 並列などで起動することもあるため、完全なゲートにはしない。判定を script に置いて LLM の判断ぶれを排除する。
+- **決定**: 起動は `/kidou <n> [<n> ...]` の番号指定 (と、`/kidou <依頼文> 起動まで` で積んだ直後) だけ。空き枠を数えて複数を自動起動する機能 (旧 `/bankai go` / `claude-task next --auto` / `CLAUDE_TASK_MAX_RUNNING`) は持たない。
+- **命名**: BLEACH の鬼道 (番号で唱える小技) と卍解 (全力の大技) に倣う。積む・番号で起動するといった小回りの操作はすべて `/kidou`、全体の把握と振り分けは `/bankai`。tmux window の起動処理は裏方の `/delegate` に置き、ユーザーの入口には出さない。
+- **理由**: 何件起動するかはユーザーが決めればよく、「n 件起動」は `kidou n1 n2 n3` の個別指定で足りる。自動起動の上限は件数の判断を LLM から外すために必要だったが、自動起動自体をやめれば上限も要らない。bankai から起動を外すことで、「状況を聞いたら session が立ち上がった」という予期しない副作用も無くなる。
+- **入力の判定**: 全トークンが番号 (`20` / `T-20`) なら起動、それ以外は依頼文として積む。数字で始まる依頼文 (「3件のバグを直して」) を誤って起動しないよう、判定は「全トークンが番号か」で行う。
 
 ## 6. タスク外 session も追う
 
@@ -44,17 +49,18 @@
 
 ## 7. session との紐付け
 
-- `/delegate task: T-n` は `claude-task launch-spec` の dir / prompt で、`tmux new-window -e CLAUDE_TASK_ID=T-n` により環境変数を渡し、SessionStart hook (`init-session.sh`) が `claude-task link` する。プロンプト文の解析に依存しない決定的な紐付け。
+- `/kidou <n>` は内部で `/delegate task: T-n` を呼ぶ。delegate は `claude-task launch-spec` の dir / prompt で、`tmux new-window -e CLAUDE_TASK_ID=T-n` により環境変数を渡し、SessionStart hook (`init-session.sh`) が `claude-task link` する。プロンプト文の解析に依存しない決定的な紐付け。
 - resume/compact 時は `claude-task id-of-session` で逆引きし、担当タスクを再注入する (adopt 済み session も対象)。
 - SessionEnd では何もしない。session が消えた running タスクは `ls` の「要確認」に出し、done にするかは人が決める。
 
 ## 8. worktree ルール: ルートで起動し、子が自分で切る
 
-- **決定**: タスク起動時の dir は常に本体 repo のルート (信頼済み dir)。worktree は子 session が起動直後に `EnterWorktree (name: task-<n>)` で自分で切る。この指示と起動 dir は `claude-task launch-spec` が決定的に生成し、bankai / delegate は組み立てない。
+- **決定**: タスク起動時の dir は常に本体 repo のルート (信頼済み dir)。worktree は子 session が起動直後に `EnterWorktree (name: task-<n>)` で自分で切る。この指示と起動 dir は `claude-task launch-spec` が決定的に生成し、kidou / delegate は組み立てない。
 - **理由**: 先に worktree を切って新 dir で起動すると、dir ごとに信頼確認ダイアログが出て起動が止まる。また子 session が CLAUDE.md の Worktree Rule に従って `/wt` で確認を求めると止まるため、指示文で確認不要と明示する。
 - **掃除処理との両立**: `init-session.sh` は未変更の `worktree-*` を自動削除するため、並列起動では「EnterWorktree した直後の、まだ未変更の worktree」を別 session の SessionStart が消しうる。生きている session (registry の pid が生存) の cwd が中にある worktree は削除対象から外す。registry の cwd は EnterWorktree 後の worktree パスに追従することを確認済み。
 - **repo ルートの解決**: 通常 repo / worktree は git-common-dir (`<repo>/.git`) の親。submodule は common dir の `core.worktree` から本体側のチェックアウト位置を引く (toplevel を使うと submodule 内 worktree で worktree 自身を返す)。
 - EnterWorktree は origin の default branch を基点にするため、local の未 push commit は worktree に含まれない (観測: dotfiles で main が origin より先行していたとき、worktree は origin 側の commit から作られた)。
+- **完了時の片付け**: `claude-task done` / `drop` はタスクの repo ルートで `delete_git_merged_branch.sh` を実行し、merge 済み branch とその worktree を消す。片付けを session の記憶に頼らず done に結びつけることで、担当 session が done し忘れて閉じても、後で bankai やユーザーが done した時点で片付く。呼び出し元の cwd が worktree 内のときは自分の cwd を消さないよう実行せず、`ExitWorktree` (keep) で抜けてからの実行を案内する。merge 判定は `git branch --merged` のため、squash merge された branch は対象外 (残る)。
 
 ## 9. 今後 (Phase 3)
 
