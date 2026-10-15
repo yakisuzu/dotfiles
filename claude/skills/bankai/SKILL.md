@@ -23,7 +23,11 @@ allowed-tools: Bash(claude-task *)
    - **inbox**: dir 未定のタスク。body から dir を推定し、一意なら `claude-task set <id> dir=<dir>` を実行してよい。曖昧なものはまとめて AskUserQuestion で確認
    - **タスク外 session**: ユーザーが手動で立てた session。追跡したそうなら `claude-task adopt <name> [title]` を提案
    - **ブロック中 / 起動可能**: 件数と先頭数件。起動可能なものは `/kidou <n> ...` の形で提案する (自分では起動しない)
-   - **epic**: `claude-task tree` で各 epic の子の進み具合と依存を見て、「epic『…』は分析が終わり、次は『…』が起動可能」の粒度で 1 行ずつ報告する。子がすべて終わった epic は done を提案する
+   - **epic**: epic はユースケースごとの振り分け・進捗の親 session として起動するもの (成果物は作らない)。一覧の「親 session 未起動」は表示の誤りではない (通常タスクの「起動可能」= 着手可 とは別の意味)
+     - `claude-task tree` で各 epic の子の進み具合と依存を見て、「epic『…』は分析が終わり、次は『…』が起動可能」の粒度で 1 行ずつ報告する
+     - 親 session が未起動で、未完了の子がある epic は `/kidou <epic の番号>` での起動を提案する (子が全部進行中でも、振り分けと進捗の窓口として起動してよい)
+     - 起動済みの epic の session が返事待ちなら、その epic の子の相談先としてそれを示す (`tmux select-window -t <session_name>`)
+     - 子がすべて終わった epic は done を提案する
    - remote (claude.ai/code) session は local の registry に出ないため、PR 経由で追う (`claude-session-deps` が起動中ならそちら)。ListAgents で cloud session が見えれば補足として触れてよい
 3. **一覧表示**: 最後に `claude-task ls --table` の出力 (Markdown 表: タスク / 優先度 / 種別 / session / 概要 / 状態) を **加工せずそのまま** 貼る。dir 設定などの操作をした後に取り直す。表は自分で組み立てない (並び順・状態ラベルは script が決める)
    - **Slack 共有を求められたら**: `claude-task ls --slack` の出力 (mrkdwn。優先度ごとの見出し + 概要ごとの段落「お客さん名: 概要」+ 依存順のタスク名。番号・session・状態は出さない) を加工せずコードブロックで示し、`claude-task ls --slack | pbcopy` でコピーできると添える。Slack 用の文面も自分で組み立てない

@@ -507,7 +507,7 @@ cmd_id_of_session() {
 # 起動可能リスト (queued かつ未ブロック)。done / drop 後に新たに起動可能になったタスクの表示に使う
 next_json() {
   enriched_json | jq '
-    [.tasks[] | select(.status == "queued" and (.blocking | length) == 0)]
+    [.tasks[] | select(.status == "queued" and .type != "epic" and (.blocking | length) == 0)]
     | sort_by(.priority, .created)'
 }
 
@@ -585,12 +585,16 @@ def pad($w): (($w - dwidth) as $n | if $n > 0 then . + (" " * $n) else . end);
 # 表示用の状態判定 (table / slack 共通)。state は [並び順, 状態ラベル, 補足]。補足はブロック先のタイトル
 JQ_STATE='
 def state($titles):
-  if .status == "running" then
-    (if .live == "idle" or .live == "waiting" then [0, "返事待ち", ""]
-     elif .live == "exited" or .live == "" then [1, "要確認 (session 終了)", ""]
-     else [2, "実行中", ""] end)
+  ((.blocking | map("「" + ($titles[.] // .) + "」") | join("・")) + " 待ち") as $bl
+  # running でも blocked_by が未完了なら補足に待ち先を出す (session が先に動いていても依存は残っている)
+  | if .status == "running" then
+    (if .live == "idle" or .live == "waiting" then [0, "返事待ち"]
+     elif .live == "exited" or .live == "" then [1, "要確認 (session 終了)"]
+     else [2, "実行中"] end) + [if (.blocking | length) > 0 then $bl else "" end]
   elif .status == "waiting" then [2.5, "依頼中", (if .waiting_on != "" then .waiting_on + " 待ち" else "相手待ち" end)]
-  elif (.status == "queued" or .status == "inbox") and (.blocking | length) > 0 then [4, "ブロック中", ((.blocking | map("「" + ($titles[.] // .) + "」") | join("・")) + " 待ち")]
+  elif (.status == "queued" or .status == "inbox") and (.blocking | length) > 0 then [4, "ブロック中", $bl]
+  # epic の「起動可能」は着手可ではなく、振り分け・進捗の親 session が未起動という意味なので分ける
+  elif .type == "epic" and .status == "queued" then [3.2, "親 session 未起動", "/kidou \(.id | ltrimstr("T-")) で起動"]
   elif .status == "queued" and .priority == 4 then [3.5, "保留 (着手するなら目標へ格上げ)", ""]
   elif .status == "queued" then [3, "起動可能", ""]
   elif .status == "inbox" then [5, "inbox (dir 未定)", ""]
@@ -647,7 +651,7 @@ slack_view() {
 }
 
 # /kidou・/bankai の実行後にそのまま貼る Markdown 表 (タスク番号 / 優先度 / 種別 / session 名 / 概要 / 状態)。
-# 並びはユーザーの対応が要る順 (返事待ち → 要確認 → 実行中 → 依頼中 → 起動可能 → 保留(優先度4) → ブロック中 → inbox → 完了/取り下げ)、
+# 並びはユーザーの対応が要る順 (返事待ち → 要確認 → 実行中 → 依頼中 → 起動可能 → epic の親 session 未起動 → 保留(優先度4) → ブロック中 → inbox → 完了/取り下げ)、
 # 同じ状態内は priority → created。タスク外 session は ID "-" で末尾に出す
 table_view() {
   jq -r "$JQ_PRIO$JQ_STATE"'
@@ -723,8 +727,9 @@ cmd_ls() {
         ["実行中 (busy)", ([$t[] | select(.status == "running" and ([.live] | inside(["idle", "waiting", "exited", ""]) | not))] | sort_by(.priority, .created) | map(row))],
         ["要確認 (session 終了済み / 未紐付けの running)", ([$t[] | select(.status == "running" and (.live == "exited" or .live == ""))] | map(row))],
         ["依頼中 (相手待ち)", ([$t[] | select(.status == "waiting")] | sort_by(.priority, .created) | map(row))],
-        ["起動可能", ([$t[] | select(.status == "queued" and .priority < 4 and (.blocking | length) == 0)] | sort_by(.priority, .created) | map(row))],
-        ["保留 (4 その他。着手するなら目標へ格上げ)", ([$t[] | select(.status == "queued" and .priority == 4 and (.blocking | length) == 0)] | sort_by(.created) | map(row))],
+        ["起動可能", ([$t[] | select(.status == "queued" and .type != "epic" and .priority < 4 and (.blocking | length) == 0)] | sort_by(.priority, .created) | map(row))],
+        ["epic (親 session 未起動。/kidou <n> で振り分け・進捗の親 session を起動)", ([$t[] | select(.status == "queued" and .type == "epic" and (.blocking | length) == 0)] | sort_by(.priority, .created) | map(row))],
+        ["保留 (4 その他。着手するなら目標へ格上げ)", ([$t[] | select(.status == "queued" and .type != "epic" and .priority == 4 and (.blocking | length) == 0)] | sort_by(.created) | map(row))],
         ["ブロック中", ([$t[] | select((.status == "queued" or .status == "inbox") and (.blocking | length) > 0)] | sort_by(.priority, .created) | map(row))],
         ["inbox (dir 未定)", ([$t[] | select(.status == "inbox" and (.blocking | length) == 0)] | sort_by(.priority, .created) | map(row))],
         ["完了", ([$t[] | select(.status == "done")] | map(row))],
