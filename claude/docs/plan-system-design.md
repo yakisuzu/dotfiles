@@ -60,3 +60,10 @@
 - **`.active` との違い**: `.active` は「今どの plan を進めているか」という単一の状態 (ファイルの中身はパス 1 行) だが、`.deps` は「待っている対象の一覧」という複数件の追記型データ (JSON Lines) である。そのため `.active` は `cat` で読めば足りるが、`.deps` は `jq` で逐行パースする前提になっている。
 - **却下した代替案**: 依存を `.active` と同じファイルに混在させる (例えば active plan ファイルの frontmatter に depends_on を足す)。plan の有無と依存の有無はライフサイクルが別 (plan が無くても他 session 待ちはありうる) であり、1 ファイルに混在させると両方の読み書きロジックが絡み合うため却下。
 - **SessionStart での注入**: `startup` トリガーの時だけ「自分を待っている session がいるか」を 1 行注入する (`resume`/`clear`/`compact` では出さない)。resume の度に同じ通知を繰り返すと鬱陶しく、鮮度も怪しくなるため、新規起動のタイミングに限定した。自分の名前は `~/.claude/sessions/$PPID.json` (session registry、非公式フォーマット) から引く。見つからない場合は通知自体を静かにスキップする (新機能のために起動を失敗させない)。
+
+## 8. root 直下は未整理 (inbox) として扱う
+
+- **決定**: `~/.claude/plans/` 直下に置かれた plan は「group 未決定の未整理」とみなし、常に整理対象にする。SessionStart hook が root の件数を通知し、気づいた session が `CLAUDE.local.md` の Plan Group mapping を足して group へ移す。
+- **理由**: mapping に無い repo (別 repo として clone した製品の一部、横断ツール等) で作業すると plan が root に落ち、気づかないまま溜まる (2026-10 に 20 件溜まっていた)。root を「正規の置き場」と定義すると、どの plan が group 未決定なのか判別できない。root = 未整理と定義することで、root の件数そのものが整理の要否を表す指標になる。
+- **mapping の照合**: pattern は cwd への前方一致 (部分一致) で、最初に一致した行を採用する。subdir ごとの行は不要 (親 repo の行で拾える)。org 全体の fallback 行 (`<org>/: org`) を最後に置けば、org 配下の新 repo は少なくとも org group に入る。
+- **却下した代替案**: hook が mapping を読んで自動で移動する案。plan の group 判定は repos frontmatter や内容に依存し、cwd だけでは決まらないケース (横断 repo の plan を製品 group に置きたい等) があるため、機械的な移動は誤配置を生む。通知のみ機械化し、判断と移動は session に委ねる。

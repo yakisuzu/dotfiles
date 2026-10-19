@@ -8,8 +8,9 @@ alwaysApply: true
 - 設計思想・変更時の背景は `dotfiles/claude/docs/plan-system-design.md` を参照
 - Plan files are saved under `~/.claude/plans/`
 - **Plan Group**: `CLAUDE.local.md` defines working directory pattern to group name mappings in the `Plan Group` section
+  - pattern は cwd のパスに前方一致 (部分一致) で照合し、最初に一致した行の group を採用する。subdir は親 repo の行で拾える
   - If cwd matches a mapping, save plans to `~/.claude/plans/<group>/`
-  - If no match, save plans to `~/.claude/plans/` directly (default behavior)
+  - If no match, save plans to `~/.claude/plans/` directly. root 直下は **未整理 (inbox)** であり、常に整理対象。root に plan を置いたら、その repo の mapping を `CLAUDE.local.md` に足して group へ移す (SessionStart が root の件数を通知する)
 - Naming conventions (3 types):
   - `plan-<topic>.md`: Implementation plan (How) - technical steps, task breakdown, file changes
   - `feature-<topic>.md`: Product requirements (What & Why) - user stories, acceptance criteria

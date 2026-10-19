@@ -4,10 +4,15 @@
 
 Map working directory patterns to plan group names.
 Plans are saved to `~/.claude/plans/<group>/`.
+Pattern は cwd のパスに前方一致 (部分一致) で照合する。subdir は親 repo の 1 行で拾えるので subdir ごとの行は書かない。最初に一致した行を採用するので、具体的な行を先に、fallback (`<org>/` 等) を最後に書く。
+root 直下 (`~/.claude/plans/*.md`) は未整理の置き場。mapping に無い repo の plan が落ちたら、mapping を足して group に移す。
 
 Format: `- <dir_pattern>: <group>`
 
-Mappings:
+Mappings (例):
+- dotfiles: dotfiles
+- <org>/<product-a-repo>: product-a
+- <org>/: org
 
 ## Privacy Terms
 

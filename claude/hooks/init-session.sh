@@ -140,6 +140,12 @@ else
     [ -f "$index_file" ] && echo "Plan index: ${index_file}"
   done
 
+  # --- root 直下の plan は未整理 (inbox)。残っていれば件数を通知し、group への振り分けを促す ---
+  unsorted_count=$(find "$PLANS_DIR" -maxdepth 1 -type f \( -name "plan-*.md" -o -name "feature-*.md" -o -name "research-*.md" \) 2>/dev/null | wc -l | tr -d ' ')
+  if [ "${unsorted_count:-0}" -gt 0 ]; then
+    echo "Unsorted plans: ${unsorted_count} file(s) in ${PLANS_DIR}/ (root は未整理。CLAUDE.local.md の Plan Group に mapping を足して group へ移す)"
+  fi
+
   # --- 自分を待っている session がいれば通知 (新規起動時のみ。resume/clear では毎回出さない) ---
   if [ "$TRIGGER" = "startup" ]; then
     MY_NAME=""
