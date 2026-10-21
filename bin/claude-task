@@ -50,6 +50,8 @@
 #   claude-task brief <id>           担当 session に注入する 1 行 (種別ごとの完了手順と親 epic)。SessionStart hook が使う
 #   claude-task id-of-session <session_id>
 #                                    session に紐付くタスク ID を出力 (無ければ空)
+#   claude-task line <id|session_id> 1 タスクを 1 行で表示 (ls --table と同じ状態判定)。session_id に紐付くタスクが無ければ終了コード 1
+#   claude-task statusline           statusLine 用。stdin の JSON の session_id から担当タスクを 1 行で出す (タスク外は session 名)
 
 # jq フィルタ内の $var は jq 変数 (shell 展開させない) ため SC2016 は誤検知
 # shellcheck disable=SC2016
@@ -230,12 +232,17 @@ repo_map_json() {
 
 # 全タスクに live / blocked / repo / group を付けた配列と、タスク外 session を返す
 #   {tasks: [...], untracked: [...]}
+# 引数に dir を渡すと repo 名はその dir だけ求める (git をタスク・session の dir ごとに呼ぶのが遅いため。line / statusline 用)
 enriched_json() {
-  local tasks live gmap rmap
+  local only_dir="${1:-}" tasks live gmap rmap
   tasks=$(all_tasks_json)
   live=$(live_sessions_json)
   gmap=$(group_map_json)
-  rmap=$(repo_map_json "$tasks" "$live")
+  if [ -n "$only_dir" ]; then
+    rmap=$(jq -nc --arg d "$only_dir" --arg r "$(repo_of_dir "$only_dir")" '{($d): $r}')
+  else
+    rmap=$(repo_map_json "$tasks" "$live")
+  fi
   jq -n --argjson tasks "$tasks" --argjson live "$live" --argjson gmap "$gmap" --argjson rmap "$rmap" \
     --arg home "$HOME" --arg self "${CLAUDE_CODE_SESSION_ID:-}" "$JQ_NORM"'
     def expand: if startswith("~/") then $home + .[1:] elif . == "~" then $home else . end;
@@ -699,6 +706,39 @@ cmd_tree() {
       end'
 }
 
+# 1 タスクを 1 行で表示 (ls --table の 1 行と同じ状態判定)。<id> は T-<n> か session_id。statusLine から使う
+# session_id に紐付くタスクが無ければ何も出さず終了コード 1
+line_view() {
+  jq -r --arg id "$1" "$JQ_PRIO$JQ_STATE"'
+    (.tasks | map({key: .id, value: .title}) | from_entries) as $titles
+    | first(.tasks[] | select(.id == $id)) // empty
+    | state($titles) as $st
+    | "\(.id) \(.type | tlabel) \(.title)\(where)\(rel($titles)) │ \($st[1])\(if $st[2] != "" then " (" + $st[2] + ")" else "" end)"'
+}
+
+cmd_line() {
+  local id="${1:-}"
+  [ -n "$id" ] || die "line: <id|session_id> を指定してください"
+  if [[ ! "$id" =~ ^T-[0-9]+$ ]]; then
+    id=$(cmd_id_of_session "$id")
+    [ -n "$id" ] || return 1
+  fi
+  require_task "$id"
+  enriched_json "$(task_field "$id" dir)" | line_view "$id"
+}
+
+# statusLine 用。stdin の JSON (session_id / session_name) を読み、紐付くタスクを 1 行で出す。
+# タスク外 session は session 名を出す
+cmd_statusline() {
+  local input sid name
+  input=$(cat)
+  sid=$(jq -r '.session_id // empty' <<<"$input")
+  name=$(jq -r '.session_name // empty' <<<"$input")
+  if [ -z "$sid" ] || ! cmd_line "$sid"; then
+    echo "${name:+$name │ }(タスク外)"
+  fi
+}
+
 cmd_ls() {
   local all="" json="" table="" slack=""
   while [ $# -gt 0 ]; do
@@ -773,6 +813,8 @@ main() {
     tree) cmd_tree "${1:-}" ;;
     brief) cmd_brief "${1:-}" ;;
     id-of-session) cmd_id_of_session "${1:-}" ;;
+    line) cmd_line "${1:-}" ;;
+    statusline) cmd_statusline ;;
     launch-spec) cmd_launch_spec "${1:-}" ;;
     -h|--help|help) sed -n '2,/^$/p' "$0" | sed 's/^# \{0,1\}//' ;;
     *) die "不明なサブコマンド: $cmd (help を参照)" ;;

@@ -2,7 +2,7 @@
 
 > このドキュメントは claude-task / `/hadou` / `/bankai` を変更する時に読む。通常セッションで読む必要はない。
 
-対象コンポーネント: `bin/claude-task` / `claude/skills/hadou` / `claude/skills/bankai` / `claude/skills/delegate` (`task:` 引数) / `claude/hooks/init-session.sh` (タスク紐付け) / `claude/rules/task.md`。
+対象コンポーネント: `bin/claude-task` / `claude/skills/hadou` / `claude/skills/bankai` / `claude/skills/delegate` (`task:` 引数) / `claude/hooks/init-session.sh` (タスク紐付け) / `claude/settings.base.json` の `statusLine` / `claude/rules/task.md`。
 
 ## 1. 位置づけ
 
@@ -52,6 +52,7 @@
 - `/hadou <n>` は内部で `/delegate task: T-n` を呼ぶ。delegate は `claude-task launch-spec` の dir / prompt で、`tmux new-window -e CLAUDE_TASK_ID=T-n` により環境変数を渡し、SessionStart hook (`init-session.sh`) が `claude-task link` する。プロンプト文の解析に依存しない決定的な紐付け。
 - resume/compact 時は `claude-task id-of-session` で逆引きし、担当タスクを再注入する (adopt 済み session も対象)。
 - SessionEnd では何もしない。session が消えた running タスクは `ls` の「要確認」に出し、done にするかは人が決める。
+- statusLine は `claude-task statusline` が stdin の `session_id` から担当タスクを引き、`line` (`ls --table` と同じ状態判定) の 1 行を出す。表示用に summary / next を別ファイルへ保存する案は、claude-task とずれる二重管理になるため採らない (表示はすべて既存の保存値と導出値から作る)。
 
 ## 8. worktree ルール: ルートで起動し、子が自分で切る
 

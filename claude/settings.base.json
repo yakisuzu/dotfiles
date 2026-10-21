@@ -51,5 +51,10 @@
   "tui": "fullscreen",
   "remoteControlAtStartup": true,
   "agentPushNotifEnabled": true,
-  "skipAutoPermissionPrompt": true
+  "skipAutoPermissionPrompt": true,
+  "statusLine": {
+    "type": "command",
+    "command": "~/dotfiles/bin/claude-task statusline",
+    "padding": 0
+  }
 }
