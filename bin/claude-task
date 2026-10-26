@@ -26,7 +26,7 @@
 #   claude-task ls [--all] [--json|--table|--slack]
 #                                    状態別に一覧 (返事待ち/実行中/要確認/依頼中/起動可能/ブロック中/inbox/タスク外 session)
 #                                    --table は Markdown 表 (タスク / 優先度 / 種別 / session / 概要 / 状態)。/hadou・/bankai の実行後表示用
-#                                    --slack は Slack 報告用 mrkdwn (優先度ごとの見出し + epic (無ければ概要) ごとの段落「お客さん名: 概要」。
+#                                    --slack は Slack 報告用 mrkdwn (優先度 (epic の子は epic の優先度) ごとの見出し + epic (無ければ概要) ごとの段落「お客さん名: 概要」。
 #                                    番号・session・状態は出さず、段落内のタスクは依存順に並べる)
 #   claude-task tree [<epic>]        epic の子を依存順の木で表示 (省略時は未完了の全 epic)
 #   claude-task show <id>            タスクの JSON を表示
@@ -618,7 +618,7 @@ def rel($titles): if .type == "epic" then " (子 \((.kids | length) - (.kids_ope
 '
 
 # Slack 報告用 (mrkdwn)。Slack は Markdown 表を描画しないため箇条書きにする。
-# 優先度ごとに見出しを切り、その中を概要 (summary = 機能) ごとの段落にする。段落の見出しは「お客さん名: 概要」
+# 優先度 (epic の子は epic の優先度) ごとに見出しを切り、その中を概要 (summary = 機能) ごとの段落にする。段落の見出しは「お客さん名: 概要」
 # (お客さん名は段落内のタスクの customer を「・」で分解・重複除去してから「・」で連ねる)。番号・session・状態は出さない (報告相手には意味がない)。
 # 段落が 2 件以上のタスクを持つか、段落外のタスクを待つときだけ、タスク名を依存順に並べる
 # (段落内で待っているタスクは最初の待ち先の下に「↳」で字下げ、2 件目以降の待ち先と段落外の待ち先は「(「…」の後)」を添える)。
@@ -631,21 +631,24 @@ slack_view() {
     | (.tasks | map({key: .id, value: .}) | from_entries) as $byid
     # epic の子は epic 単位 (見出しは epic の summary、無ければ epic の title。お客さん名は epic のものを優先し、空なら子のもの)。
     # epic 自身は行に出さず、epic に属さないタスクは従来どおり summary 単位
-    | [.tasks[] | select(.status != "done" and .status != "dropped" and .type != "epic")
+    # 見出し (優先度の段) は epic の priority で決め、epic に属さないタスクは自分の priority で決める (gprio)。子の priority は段落内の並びにだけ使う。
+    # inbox (dir 未定) は未振り分けなので報告に出さない。表示するタスクが 0 件の段・段落は見出しも出さない
+    | [.tasks[] | select(.status != "done" and .status != "dropped" and .status != "inbox" and .type != "epic")
       | ($byid[.parent] // null) as $e
       | {id, title, priority, created, blocking,
+         gprio: (if $e then $e.priority else .priority end),
          customer: (if ($e.customer // "") != "" then $e.customer elif (.customer // "") != "" then .customer else "未確認" end),
          summary: (if $e then (if ($e.summary // "") != "" then $e.summary else $e.title end)
                    elif (.summary // "") == "" then .title else .summary end),
          key: (if $e then "E:" + $e.id elif (.summary // "") == "" then "S:" + .title else "S:" + .summary end)}] as $live
     | if ($live | length) == 0 then "(タスクなし)"
       else
-        $live | group_by(.priority)[]
-        | "*\(.[0].priority | plabel)*",
+        $live | group_by(.gprio)[]
+        | "*\(.[0].gprio | plabel)*",
           (group_by(.key)
            # 「全体」だけの段落を先頭、「未確認」だけの段落を末尾、ほかは最初のタスクの作成順
            | sort_by((map(.customer | corder) | min), (map(.created) | min))[]
-           | sort_by(.created) as $g
+           | sort_by(.priority, .created) as $g
            | ($g | map(.id)) as $ids
            # 段落内の待ち先 (最初の 1 件) の下に置く。段落内に待ち先が無いものが根
            | def parent: [.blocking[] | select(. as $b | $ids | index($b))][0];
