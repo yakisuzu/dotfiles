@@ -30,7 +30,7 @@ allowed-tools: Bash(claude-task *)
      - 子がすべて終わった epic は done を提案する
    - remote (claude.ai/code) session は local の registry に出ないため、PR 経由で追う (`claude-session-deps` が起動中ならそちら)。ListAgents で cloud session が見えれば補足として触れてよい
 3. **一覧表示**: 最後に `claude-task ls --table` の出力 (Markdown 表: タスク / 優先度 / 種別 / session / 概要 / 状態) を **加工せずそのまま** 貼る。dir 設定などの操作をした後に取り直す。表は自分で組み立てない (並び順・状態ラベルは script が決める)
-   - **Slack 共有を求められたら**: `claude-task ls --slack` の出力 (mrkdwn。優先度ごとの見出し + 概要ごとの段落「お客さん名: 概要」+ 依存順のタスク名。番号・session・状態は出さない) を加工せずコードブロックで示し、`claude-task ls --slack | pbcopy` でコピーできると添える。Slack 用の文面も自分で組み立てない
+   - **Slack 共有を求められたら**: `claude-task ls --slack` の出力 (mrkdwn。優先度 (epic の子は epic の優先度) ごとの見出し + 概要ごとの段落「お客さん名: 概要」+ 依存順のタスク名。番号・session・状態は出さない) を加工せずコードブロックで示し、`claude-task ls --slack | pbcopy` でコピーできると添える。Slack 用の文面も自分で組み立てない
 4. **idle 通知を受けたとき** (bankai session が生きていれば): `claude-task ls` を読み直し、そのタスクの状況 (返事待ちか、完了か) を 1 行で報告。完了で起動可能になったタスクがあれば `/hadou <n>` を提案する
 
 ## 守ること
