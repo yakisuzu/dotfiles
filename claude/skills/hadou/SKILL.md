@@ -1,7 +1,7 @@
 ---
 name: hadou
 description: claude-task の小回りの操作をまとめた入口。依頼文を渡すとタスクとして積み、番号 (`/hadou 20 23`) を渡すとそのタスクの session を起動する。「あとでやる」「TODO に積んで」「タスク追加」「T-20 起動して」「積んで起動して」などで使う。どの session からでも呼べる。全体の把握・振り分けは /bankai。
-argument-hint: "<n> [<n> ...] | [type: 分析|作業|依頼|epic] [parent: T-<n>] [dir: <path>] [after: T-<n>,...] [p1|p2|p3|p4] [起動まで] <依頼文>"
+argument-hint: "<n> [<n> ...] | [type: 分析|作業|依頼|epic] [parent: T-<n>] [dir: <path>] [after: T-<n>,...] [start: YYYY-MM-DD] [hold: YYYY-MM-DD] [p1|p2|p3|p4] [起動まで] <依頼文>"
 allowed-tools: Bash(claude-task *)
 model: sonnet
 ---
@@ -30,6 +30,7 @@ claude-task の小回りの操作 (積む・番号指定で起動する) を担�
 - モデルは delegate の既定 (sonnet)。ユーザーがモデルを明示したときだけ `model: <alias>` を足す
 - status が `inbox` (dir 未定) のタスクは起動できない。body から dir が一意に決まれば `claude-task set T-<n> dir=<dir>` してから起動し、決まらなければ報告して飛ばす
 - ブロック中 (blocked_by 未完了) と優先度 4 (その他) も番号指定なら起動してよい (明示指示のため)。1 行その旨を添える
+- 開始待ち (`start_on` が未来) は `launch-spec` が拒否するため起動できない。拒否メッセージ (開始日と `claude-task set T-<n> start_on=` で外せること) をそのまま報告して飛ばす。保留中 (`hold_until` が未来) は起動できる (催促文の作成など)
 - 種別による違い (worktree を切るのは作業だけ、完了手順) は `launch-spec` と SessionStart の注入文が決める。hadou は種別で起動手順を変えない
 - 依頼中 (waiting) のタスクも起動できる (催促文の作成など)。epic は親 session として起動する
 - 起動後、その session に `SendMessage` の `notify_when_idle: true` を張る (この session が生きている間だけのベストエフォート)
@@ -41,6 +42,8 @@ claude-task の小回りの操作 (積む・番号指定で起動する) を担�
 - `parent: T-<n>` — 任意。所属する epic (epic の session から呼ぶときに付く)
 - `dir: <path>` — 任意。作業ディレクトリ。直後の 1 トークン
 - `after: T-1,T-2` — 任意。先に終わっている必要があるタスク (blocked_by)
+- `start: YYYY-MM-DD` — 任意。開始日 (`--start-on`)。前日まで完全停止 (起動も拒否)。依頼文の「x/y から」「x/y 以降に」はこれ
+- `hold: YYYY-MM-DD` — 任意。保留期限 (`--hold-until`)。当日まで催促・起動提案をしない。当日から「保留期限到来 (要判断)」として一覧の先頭に出る。依頼文の「x/y まで保留」「x/y まで待つ」はこれ
 - `p1`〜`p4` — 任意。優先度の明示。無ければ Step 2.5 で分類する
 - 残り全文 — 依頼文
 
@@ -86,8 +89,9 @@ claude-task の小回りの操作 (積む・番号指定で起動する) を担�
 3. **重複確認**: `claude-task ls --all --json | jq -r '.tasks[] | select(.status != "done" and .status != "dropped") | "\(.id)\t\(.title)"'` を見て、同じ内容の未完了タスクがあれば追加せず既存 ID を報告する (内容を足したいなら `claude-task log <id> <追記>`)
 4. **追加**:
    ```bash
-   claude-task add --type <analysis|work|request|epic> [--parent T-<n>] [--dir <dir>] --priority <1-4> [--customer <名前|全体>] [--summary <概要>] [--blocked-by T-1,T-2] [--waiting-on <相手・URL>] --body "<自己完結した依頼文>" -- "<title>"
+   claude-task add --type <analysis|work|request|epic> [--parent T-<n>] [--dir <dir>] --priority <1-4> [--customer <名前|全体>] [--summary <概要>] [--blocked-by T-1,T-2] [--waiting-on <相手・URL>] [--start-on YYYY-MM-DD] [--hold-until YYYY-MM-DD] --body "<自己完結した依頼文>" -- "<title>"
    ```
    - 引数はシェルのクォートに注意 (依頼文に `"` や `$` が含まれる場合は heredoc で変数に入れてから渡す)
+   - 依頼文に日付の待ちがあれば `start:` / `hold:` が無くても `--start-on` / `--hold-until` に載せる (「11/12 以降に merge」→ `--start-on 2026-11-12`、「年末まで返事を待つ」→ `--hold-until 2026-12-31`)。年が無ければ次に来るその日付にする。waiting_on や body の文章だけで日付を持たせない
 5. **報告**: 1 行で `「<title>」を積みました (T-<n>、<種別>、優先度 <n> <分類>、<repo or inbox>)` と返す (epic の子なら「epic『…』の子」を添える)。「積んで起動」でなければ、起動するなら `/hadou <n>` と添える
 6. **一覧表示**: どのモードでも最後に (起動後は取り直して) `claude-task ls --table` の出力 (Markdown 表: タスク / 優先度 / 種別 / session / 概要 / 状態) を **加工せずそのまま** 貼る。表は自分で組み立てない

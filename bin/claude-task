@@ -8,7 +8,8 @@
 #
 # Usage:
 #   claude-task add [--type T] [--parent T-n] [--dir D] [--priority 1-4] [--customer C] [--summary S]
-#                   [--blocked-by T-1,T-2] [--waiting-on W] [--body TEXT] <title...>
+#                   [--blocked-by T-1,T-2] [--waiting-on W] [--start-on YYYY-MM-DD] [--hold-until YYYY-MM-DD]
+#                   [--body TEXT] <title...>
 #                                    type (既定 work。成果物と完了条件で分ける):
 #                                      analysis 分析  成果物は結論 (問題なし / issue / Slack)。worktree を切らない。done には結論が必須
 #                                      work     作業  成果物は PR / issue / Slack 報告 (自分がするレビューも含む)。worktree を切る
@@ -22,18 +23,23 @@
 #                                      2 優先   問い合わせ対応・レビュー確認など (待っている人がいる作業)
 #                                      3 目標   月目標・顧客約束を含む、戦略的にやるべき作業
 #                                      4 その他 約束しておらず今ではない。着手するなら目標への格上げ調整が先 (自動起動しない)
+#                                    日付ゲート (2 種類。前日までは一覧の通常セクションから外れ、起動・催促の提案対象にならない):
+#                                      start_on   開始日。その日まで完全停止 (「開始待ち」。launch-spec も拒否)。当日から通常のタスクに戻る
+#                                      hold_until 保留期限。その日まで保留 (「保留中」。依頼の催促をしない)。当日から「保留期限到来 (要判断)」として先頭に出す
+#                                                 (リマインダー。催促する・done にする・hold_until= で延ばすのいずれかを人が決める)
 #                                    タスクを追加し ID を出力。--waiting-on ありなら waiting、dir 指定ありなら queued、無しなら inbox
 #   claude-task ls [--all] [--json|--table|--slack]
 #                                    状態別に一覧 (返事待ち/実行中/要確認/依頼中/起動可能/ブロック中/inbox/タスク外 session)
 #                                    --table は Markdown 表 (タスク / 優先度 / 種別 / session / 概要 / 状態)。/hadou・/bankai の実行後表示用
 #                                    --slack は Slack 報告用 mrkdwn (優先度 (epic の子は epic の優先度) ごとの見出し + epic (無ければ概要) ごとの段落「お客さん名: 概要」。
-#                                    番号・session・状態は出さず、段落内のタスクは依存順に並べる)
+#                                    番号・session・状態は出さず、段落内のタスクは依存順に並べる。日付ゲート中のタスクは末尾の「保留」の段に日付付きで分ける)
 #   claude-task tree [<epic>]        epic の子を依存順の木で表示 (省略時は未完了の全 epic)
 #   claude-task show <id>            タスクの JSON を表示
 #   claude-task set <id> key=value.. 変更可能キー: title type parent dir priority customer summary body blocked_by prs result
-#                                    waiting_on plan_topic status
+#                                    waiting_on start_on hold_until plan_topic status
 #                                    (body は起動時の最初のプロンプト。変更すると log に記録する)
 #                                    (blocked_by/prs はカンマ区切り。inbox に dir を入れると queued になる。waiting_on を入れると waiting になる)
+#                                    (start_on / hold_until は YYYY-MM-DD。空にすると外れる。変更は log に残す)
 #   claude-task log <id> <msg...>    ログ追記
 #   claude-task link <id> <session_id> [session_name]
 #                                    session と紐付けて running にする (SessionStart hook が呼ぶ)
@@ -70,6 +76,17 @@ mkdir -p "$TASKS_DIR"
 
 die() { echo "claude-task: $*" >&2; exit 1; }
 now() { date +%Y-%m-%dT%H:%M:%S%z; }
+# 日付ゲートの判定に使う今日 (YYYY-MM-DD)。テスト用に CLAUDE_TASK_TODAY で差し替えられる
+today() { echo "${CLAUDE_TASK_TODAY:-$(date +%Y-%m-%d)}"; }
+
+# YYYY-MM-DD の実在する日付か (strptime は 02-30 を 03-02 に丸めるため、往復して一致を見る)
+check_date() {
+  local key="$1" val="$2"
+  [ -z "$val" ] && return 0
+  [[ "$val" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]] || die "$key は YYYY-MM-DD で指定します: $val"
+  [ "$(jq -rn --arg d "$val" '$d | try (strptime("%Y-%m-%d") | mktime | strftime("%Y-%m-%d")) catch ""')" = "$val" ] \
+    || die "$key が実在する日付ではありません: $val"
+}
 
 # ---------------------------------------------------------------------------
 # 書き込みロック (mkdir はアトミック)。古いロック (60秒超) は残骸とみなして奪う
@@ -125,8 +142,10 @@ csv_to_json() {
 
 TYPES="analysis work request epic"
 
-# 種別追加前のタスクは type / parent / result / waiting_on を持たないため、読むときに既定値で補う (ファイルは書き換えない)
-JQ_NORM='def norm: . + {type: (.type // "work"), parent: (.parent // ""), result: (.result // ""), waiting_on: (.waiting_on // "")};'
+# 種別追加前のタスクは type / parent / result / waiting_on を、日付ゲート追加前のタスクは start_on / hold_until を持たないため、
+# 読むときに既定値で補う (ファイルは書き換えない)
+JQ_NORM='def norm: . + {type: (.type // "work"), parent: (.parent // ""), result: (.result // ""), waiting_on: (.waiting_on // ""),
+  start_on: (.start_on // ""), hold_until: (.hold_until // "")};'
 
 task_field() { jq -r "$JQ_NORM"' norm | .'"$2" "$(task_file "$1")"; }
 
@@ -244,11 +263,25 @@ enriched_json() {
     rmap=$(repo_map_json "$tasks" "$live")
   fi
   jq -n --argjson tasks "$tasks" --argjson live "$live" --argjson gmap "$gmap" --argjson rmap "$rmap" \
-    --arg home "$HOME" --arg self "${CLAUDE_CODE_SESSION_ID:-}" "$JQ_NORM"'
+    --arg home "$HOME" --arg self "${CLAUDE_CODE_SESSION_ID:-}" --arg today "$(today)" "$JQ_NORM"'
     def expand: if startswith("~/") then $home + .[1:] elif . == "~" then $home else . end;
     def group_of: (expand) as $d
       | [$gmap[] | . as $m | select(($d | endswith("/" + $m.pattern)) or ($d | contains("/" + $m.pattern + "/")))]
       | sort_by(.pattern | length) | last | (.group // "");
+    # 日付の短い表示 (今年なら M/D、別の年なら YYYY/M/D)
+    def dshort: (if .[0:4] == $today[0:4] then "" else .[0:4] + "/" end) + (.[5:7] | ltrimstr("0")) + "/" + (.[8:10] | ltrimstr("0"));
+    # 日付ゲート (保存した start_on / hold_until と今日から導出)。ISO 形式なので文字列比較でよい
+    #   start: 開始日前 (完全停止)  hold: 保留期限前 (催促しない)  due: 保留期限到来 (要判断。hold_until を外すか done するまで残る)
+    def gate_of: if .status == "done" or .status == "dropped" then ""
+      elif .start_on != "" and .start_on > $today then "start"
+      elif .hold_until != "" and .hold_until > $today then "hold"
+      elif .hold_until != "" then "due"
+      else "" end;
+    def gate_note_of: (gate_of) as $g
+      | if $g == "start" then (.start_on | dshort) + " から"
+        elif $g == "hold" then (.hold_until | dshort) + " まで保留"
+        elif $g == "due" then (.hold_until | dshort) + " 期限"
+        else "" end;
     ($tasks | map(norm)) as $tasks
     | ($tasks | map({key: .id, value: .status}) | from_entries) as $st
     | ($tasks | map(select(.session_id != "") | .session_id)) as $linked
@@ -265,10 +298,13 @@ enriched_json() {
             kids: $kids,
             kids_open: [$kids[] | select($st[.] != "done" and $st[.] != "dropped")],
             repo: (if $t.dir == "" then "" else ($rmap[$t.dir] // "") end),
-            group: (if $t.dir == "" then "" else ($t.dir | group_of) end)
+            group: (if $t.dir == "" then "" else ($t.dir | group_of) end),
+            gate: ($t | gate_of),
+            gate_note: ($t | gate_note_of)
           }
       )) as $all
     | {
+        today: $today,
         tasks: $all,
         untracked: [$live[] | select(.sessionId as $i | ($linked | index($i)) == null and $i != $self)
                     | . + {repo: ($rmap[.cwd] // ""), group: (.cwd | group_of)}]
@@ -279,12 +315,14 @@ enriched_json() {
 # subcommands
 # ---------------------------------------------------------------------------
 cmd_add() {
-  local dir="" priority=4 blocked="" body="" customer="" summary="" type=work parent="" waiting_on="" title
+  local dir="" priority=4 blocked="" body="" customer="" summary="" type=work parent="" waiting_on="" start_on="" hold_until="" title
   while [ $# -gt 0 ]; do
     case "$1" in
       --type) type="$2"; shift 2 ;;
       --parent) parent="$2"; shift 2 ;;
       --waiting-on) waiting_on="$2"; shift 2 ;;
+      --start-on) start_on="$2"; shift 2 ;;
+      --hold-until) hold_until="$2"; shift 2 ;;
       --dir) dir="$2"; shift 2 ;;
       --priority) priority="$2"; shift 2 ;;
       --blocked-by) blocked="$2"; shift 2 ;;
@@ -302,6 +340,8 @@ cmd_add() {
   [[ "$priority" =~ ^[1-4]$ ]] || die "add: priority は 1-4 (1 復旧 / 2 優先 / 3 目標 / 4 その他)"
   check_type "$type"
   check_parent "" "$type" "$parent"
+  check_date "--start-on" "$start_on"
+  check_date "--hold-until" "$hold_until"
   [ -n "$body" ] || body="$title"
   if [ -n "$dir" ]; then
     [ -d "$(expand_dir "$dir")" ] || die "add: dir が存在しません: $dir"
@@ -324,10 +364,12 @@ cmd_add() {
     --argjson priority "$priority" --argjson blocked "$blocked_json" --arg body "$body" \
     --arg customer "$customer" --arg summary "$summary" \
     --arg type "$type" --arg parent "$parent" --arg waiting_on "$waiting_on" \
+    --arg start_on "$start_on" --arg hold_until "$hold_until" \
     --arg now "$(now)" --arg msg "add$(caller_tag)" '{
       id: $id, type: $type, parent: $parent, title: $title, status: $status, dir: $dir, priority: $priority,
       customer: $customer, summary: $summary,
-      blocked_by: $blocked, waiting_on: $waiting_on, result: "", session_name: "", session_id: "", prs: [], plan_topic: "",
+      blocked_by: $blocked, waiting_on: $waiting_on, start_on: $start_on, hold_until: $hold_until,
+      result: "", session_name: "", session_id: "", prs: [], plan_topic: "",
       body: $body, log: [{at: $now, msg: $msg}], created: $now, updated: $now
     }' >"$(task_file "$id")"
   echo "$id"
@@ -368,6 +410,10 @@ cmd_set() {
           .waiting_on = $v
           | if $v != "" and (.status != "done" and .status != "dropped") then .status = "waiting" else . end
           | .log += [{at: $now, msg: ("waiting_on: " + $v)}]' --arg v "$val" ;;
+      start_on|hold_until)
+        # 日付ゲート。空で外す。旧値は log に残す
+        check_date "$key" "$val"
+        update_task "$id" ".log += [{at: \$now, msg: (\"$key: \" + (.$key // \"\") + \" -> \" + \$v)}] | .$key = \$v" --arg v "$val" ;;
       plan_topic)
         update_task "$id" '.plan_topic = $v' --arg v "$val" ;;
       customer|summary)
@@ -453,6 +499,10 @@ cmd_launch_spec() {
   dir=$(jq -r .dir <<<"$t"); status=$(jq -r .status <<<"$t"); type=$(jq -r .type <<<"$t")
   [ -n "$dir" ] || die "launch-spec: $id は dir 未定です (claude-task set $id dir=...)"
   case "$status" in done|dropped) die "launch-spec: $id は $status です" ;; esac
+  # 開始日前は完全停止 (番号指定でも起動しない)。前倒しするなら start_on を外す
+  local gate
+  gate=$(enriched_json "$dir" | jq -r --arg id "$id" '.tasks[] | select(.id == $id) | if .gate == "start" then .gate_note else "" end')
+  [ -z "$gate" ] || die "launch-spec: $id は開始待ちです ($gate)。前倒しするなら claude-task set $id start_on= で外す"
   root=$(repo_root_of_dir "$dir")
   wt=""
   if [ -n "$root" ] && [ "$type" != work ]; then
@@ -513,10 +563,10 @@ cmd_id_of_session() {
   all_tasks_json | jq -r --arg s "$sid" '[.[] | select(.session_id == $s)] | sort_by(.created) | last | .id // empty'
 }
 
-# 起動可能リスト (queued かつ未ブロック)。done / drop 後に新たに起動可能になったタスクの表示に使う
+# 起動可能リスト (queued かつ未ブロックかつ日付ゲート外)。done / drop 後に新たに起動可能になったタスクの表示に使う
 next_json() {
   enriched_json | jq '
-    [.tasks[] | select(.status == "queued" and .type != "epic" and (.blocking | length) == 0)]
+    [.tasks[] | select(.status == "queued" and .type != "epic" and (.blocking | length) == 0 and .gate == "")]
     | sort_by(.priority, .created)'
 }
 
@@ -592,16 +642,22 @@ def pad($w): (($w - dwidth) as $n | if $n > 0 then . + (" " * $n) else . end);
 '
 
 # 表示用の状態判定 (table / slack 共通)。state は [並び順, 状態ラベル, 補足]。補足はブロック先のタイトル
+# 日付ゲート (gate) は、session が生きている running (返事待ち / 実行中) 以外のすべてに優先する
+# (開始待ち・保留中は通常の状態より後ろ、保留期限到来は返事待ちと同じ先頭)
 JQ_STATE='
+def gated: .gate != "" and (.status != "running" or .live == "exited" or .live == "");
 def state($titles):
   ((.blocking | map("「" + ($titles[.] // .) + "」") | join("・")) + " 待ち") as $bl
   # running でも blocked_by が未完了なら補足に待ち先を出す (session が先に動いていても依存は残っている)
-  | if .status == "running" then
-    (if .live == "idle" or .live == "waiting" then [0, "返事待ち"]
-     # session が終了していて待ち先が残っているものは、確認より先に待ち先の完了が要るためブロック中に寄せる
-     elif (.live == "exited" or .live == "") and (.blocking | length) > 0 then [4, "ブロック中"]
-     elif .live == "exited" or .live == "" then [1, "要確認 (session 終了)"]
-     else [2, "実行中"] end) + [if (.blocking | length) > 0 then $bl else "" end]
+  | if .status == "running" and (.live == "idle" or .live == "waiting") then [0, "返事待ち", (if (.blocking | length) > 0 then $bl else "" end)]
+  elif .status == "running" and (.live != "exited" and .live != "") then [2, "実行中", (if (.blocking | length) > 0 then $bl else "" end)]
+  elif .gate == "due" then [0, "保留期限到来 (要判断)", .gate_note]
+  elif .gate == "start" then [4.5, "開始待ち", .gate_note]
+  elif .gate == "hold" then [4.6, "保留中", .gate_note]
+  elif .status == "running" then
+    # session が終了していて待ち先が残っているものは、確認より先に待ち先の完了が要るためブロック中に寄せる
+    (if (.blocking | length) > 0 then [4, "ブロック中"] else [1, "要確認 (session 終了)"] end)
+    + [if (.blocking | length) > 0 then $bl else "" end]
   elif .status == "waiting" then [2.5, "依頼中", (if .waiting_on != "" then .waiting_on + " 待ち" else "相手待ち" end)]
   elif (.status == "queued" or .status == "inbox") and (.blocking | length) > 0 then [4, "ブロック中", $bl]
   # epic の「起動可能」は着手可ではなく、振り分け・進捗の親 session が未起動という意味なので分ける
@@ -622,11 +678,14 @@ def rel($titles): if .type == "epic" then " (子 \((.kids | length) - (.kids_ope
 # (お客さん名は段落内のタスクの customer を「・」で分解・重複除去してから「・」で連ねる)。番号・session・状態は出さない (報告相手には意味がない)。
 # 段落が 2 件以上のタスクを持つか、段落外のタスクを待つときだけ、タスク名を依存順に並べる
 # (段落内で待っているタスクは最初の待ち先の下に「↳」で字下げ、2 件目以降の待ち先と段落外の待ち先は「(「…」の後)」を添える)。
-# customer 空は「未確認」、summary 空は title。タスク外 session は出さない
+# customer 空は「未確認」、summary 空は title。タスク外 session は出さない。
+# 日付ゲート中 (開始待ち / 保留中) のタスクは優先度の段から外し、末尾の「保留」の段に同じ段落形式で、タスクごとに日付を添えて並べる
+# (保留期限が到来したものはゲートが外れたものとして通常の段に戻る)
 slack_view() {
   jq -r "$JQ_PRIO"'
     def esc: tostring | gsub("&"; "&amp;") | gsub("<"; "&lt;") | gsub(">"; "&gt;") | gsub("\n"; " ");
     def corder: if . == "全体" then 0 elif . == "未確認" then 2 else 1 end;
+    def para_head: (map(.customer | split("・")[] | select(. != "")) | unique | sort_by(corder, .) | map(esc) | join("・")) + ": *" + (.[0].summary | esc) + "*";
     (.tasks | map({key: .id, value: .title}) | from_entries) as $titles
     | (.tasks | map({key: .id, value: .}) | from_entries) as $byid
     # epic の子は epic 単位 (見出しは epic の summary、無ければ epic の title。お客さん名は epic のものを優先し、空なら子のもの)。
@@ -635,15 +694,18 @@ slack_view() {
     # inbox (dir 未定) は未振り分けなので報告に出さない。表示するタスクが 0 件の段・段落は見出しも出さない
     | [.tasks[] | select(.status != "done" and .status != "dropped" and .status != "inbox" and .type != "epic")
       | ($byid[.parent] // null) as $e
-      | {id, title, priority, created, blocking,
+      | {id, title, priority, created, blocking, gate, gate_note,
+         gdate: (if .gate == "start" then .start_on else .hold_until end),
          gprio: (if $e then $e.priority else .priority end),
          customer: (if ($e.customer // "") != "" then $e.customer elif (.customer // "") != "" then .customer else "未確認" end),
          summary: (if $e then (if ($e.summary // "") != "" then $e.summary else $e.title end)
                    elif (.summary // "") == "" then .title else .summary end),
-         key: (if $e then "E:" + $e.id elif (.summary // "") == "" then "S:" + .title else "S:" + .summary end)}] as $live
-    | if ($live | length) == 0 then "(タスクなし)"
+         key: (if $e then "E:" + $e.id elif (.summary // "") == "" then "S:" + .title else "S:" + .summary end)}] as $all
+    | ([$all[] | select(.gate != "start" and .gate != "hold")]) as $live
+    | ([$all[] | select(.gate == "start" or .gate == "hold")]) as $held
+    | if ($all | length) == 0 then "(タスクなし)"
       else
-        $live | group_by(.gprio)[]
+        ($live | group_by(.gprio)[]
         | "*\(.[0].gprio | plabel)*",
           (group_by(.key)
            # 「全体」だけの段落を先頭、「未確認」だけの段落を末尾、ほかは最初のタスクの作成順
@@ -657,10 +719,19 @@ slack_view() {
              def line($depth): (if $depth == 0 then "• " else ("    " * $depth) + "↳ " end) + (.title | esc)
                + (outer as $o | if ($o | length) > 0 then " (" + ($o | join("・")) + " の後)" else "" end);
              def tree($depth): . as $t | line($depth), ($g[] | select(parent == $t.id) | tree($depth + 1));
-             ($g | map(.customer | split("・")[] | select(. != "")) | unique | sort_by(corder, .) | map(esc) | join("・")) + ": *" + ($g[0].summary | esc) + "*",
+             ($g | para_head),
              (if ($g | length) > 1 or ($g[0] | outer | length) > 0 then ($g[] | select(parent == null) | tree(0)) else empty end),
              ""
-          )
+          )),
+        # 保留の段: 段落は日付の早い順、段落内も日付順。依存の字下げはせず、タスクごとに「(M/D から)」「(M/D まで保留)」を添える
+        (if ($held | length) > 0 then
+          "*保留*",
+          ($held | group_by(.key) | sort_by(map(.gdate) | min)[]
+           | sort_by(.gdate, .created) as $g
+           | ($g | para_head),
+             ($g[] | "• " + (.title | esc) + " (" + (.gate_note | esc) + ")"),
+             "")
+         else empty end)
       end'
 }
 
@@ -765,11 +836,16 @@ cmd_ls() {
     # 1 行 = [タスク, 優先度, 種別, session, 概要, 補足]。補足 (ブロック先 / 依頼先) は最終列なので揃えない
     | def row: [.id, (.priority | plabel), (.type | tlabel), (if .session_name != "" then .session_name else "-" end),
                 (.title + where + rel($titles)),
-                (if (.blocking | length) > 0 then "⛔ " + (.blocking | map("「" + ($titles[.] // .) + "」") | join("・")) + " 待ち"
+                (if gated then "⏸ " + .gate_note
+                 elif (.blocking | length) > 0 then "⛔ " + (.blocking | map("「" + ($titles[.] // .) + "」") | join("・")) + " 待ち"
                  elif .status == "waiting" and .waiting_on != "" then "📨 " + .waiting_on + " 待ち" else "" end)];
       def urow: ["-", "-", "-", (if .name != "" then .name else .sessionId[0:8] end), ("(タスク外)" + where), .status];
-    .tasks as $t
+    # 日付ゲート中のタスク ($h) は通常のセクションから外し、専用のセクションに出す (session が生きている running は通常どおり)
+    .tasks as $all
+    | [$all[] | select(gated | not)] as $t
+    | [$all[] | select(gated)] as $h
     | [
+        ["保留期限到来 (要判断: 催促する / done / hold_until= で延ばす)", ([$h[] | select(.gate == "due")] | sort_by(.hold_until, .priority) | map(row))],
         ["返事待ち (idle/waiting)", ([$t[] | select(.status == "running" and (.live == "idle" or .live == "waiting"))] | sort_by(.priority, .created) | map(row))],
         ["実行中 (busy)", ([$t[] | select(.status == "running" and ([.live] | inside(["idle", "waiting", "exited", ""]) | not))] | sort_by(.priority, .created) | map(row))],
         ["要確認 (session 終了済み / 未紐付けの running)", ([$t[] | select(.status == "running" and (.live == "exited" or .live == "") and (.blocking | length) == 0)] | map(row))],
@@ -780,6 +856,8 @@ cmd_ls() {
         ["ブロック中", ([$t[] | select((.blocking | length) > 0 and (.status == "queued" or .status == "inbox"
                         or (.status == "running" and (.live == "exited" or .live == ""))))] | sort_by(.priority, .created) | map(row))],
         ["inbox (dir 未定)", ([$t[] | select(.status == "inbox" and (.blocking | length) == 0)] | sort_by(.priority, .created) | map(row))],
+        ["開始待ち (start_on 前。完全停止)", ([$h[] | select(.gate == "start")] | sort_by(.start_on, .priority) | map(row))],
+        ["保留中 (hold_until まで。催促しない)", ([$h[] | select(.gate == "hold")] | sort_by(.hold_until, .priority) | map(row))],
         ["完了", ([$t[] | select(.status == "done")] | map(row))],
         ["取り下げ", ([$t[] | select(.status == "dropped")] | map(row))],
         ["タスク外 session — claude-task adopt <name> で取り込み", ([.untracked[] | urow])]

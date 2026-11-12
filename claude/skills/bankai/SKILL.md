@@ -15,10 +15,12 @@ allowed-tools: Bash(claude-task *)
 
 1. **把握**: `claude-task ls` (人間向け) と必要に応じ `claude-task ls --json` を読む
 2. **報告と整理** (短く、優先度順。個々のタスクの列挙は Step 4 の表に任せ、ここでは判断が要るものだけ書く):
+   - **保留期限到来 (要判断)**: `hold_until` の当日を過ぎたタスク。一覧の先頭に出る。待ち先 (waiting_on) と log を見て、催促する (`/hadou <n>` で催促文作成) / 返答済みなら done / まだ待つなら `claude-task set <id> hold_until=<次の期限>` のどれかをユーザーに選んでもらう (勝手に延ばさない)
    - **優先度 1 (復旧) が未着手・ブロック中なら最初に書く**。未着手なら `/hadou <n>` での起動を提案する
    - 優先度 2 (優先) の返事待ち session は、待っている人がいるので返事待ちの中でも先に挙げる
    - **返事待ち (idle)**: ユーザーの番の session。最優先で示す (`tmux select-window -t <session_name>` で移動できる)
    - **依頼中 (waiting)**: 他の人の返答待ち。`claude-task show` の log で依頼してからの日数を見て、数日動きが無いものは催促 (`/hadou <n>` で催促文作成) を提案する。返答済みと分かれば done を提案
+   - **開始待ち / 保留中** (一覧の末尾): 日付ゲート中。起動も催促も提案しない (開始待ちは `launch-spec` が拒否する)。件数と日付だけ 1 行で触れる。ユーザーが「x/y から」「x/y まで保留」と言ったら、文章を log や waiting_on に書く代わりに `claude-task set <id> start_on=YYYY-MM-DD` / `hold_until=YYYY-MM-DD` で構造に載せる (前倒し・解除は空を代入)
    - **要確認**: running なのに session が終了済み。`claude-task show` の log と prs (`gh pr view` で merge 済みか) を見て、完了していそうなら `done` を、途中なら `/hadou <n>` での再起動を提案する (勝手に done にしない)。PR merge 後に done せず session を閉じたケースが多く、`done` すると worktree / branch の片付けも走る
    - **inbox**: dir 未定のタスク。body から dir を推定し、一意なら `claude-task set <id> dir=<dir>` を実行してよい。曖昧なものはまとめて AskUserQuestion で確認
    - **タスク外 session**: ユーザーが手動で立てた session。追跡したそうなら `claude-task adopt <name> [title]` を提案
@@ -30,7 +32,7 @@ allowed-tools: Bash(claude-task *)
      - 子がすべて終わった epic は done を提案する
    - remote (claude.ai/code) session は local の registry に出ないため、PR 経由で追う (`claude-session-deps` が起動中ならそちら)。ListAgents で cloud session が見えれば補足として触れてよい
 3. **一覧表示**: 最後に `claude-task ls --table` の出力 (Markdown 表: タスク / 優先度 / 種別 / session / 概要 / 状態) を **加工せずそのまま** 貼る。dir 設定などの操作をした後に取り直す。表は自分で組み立てない (並び順・状態ラベルは script が決める)
-   - **Slack 共有を求められたら**: `claude-task ls --slack` の出力 (mrkdwn。優先度 (epic の子は epic の優先度) ごとの見出し + 概要ごとの段落「お客さん名: 概要」+ 依存順のタスク名。番号・session・状態は出さない) を加工せずコードブロックで示し、`claude-task ls --slack | pbcopy` でコピーできると添える。Slack 用の文面も自分で組み立てない
+   - **Slack 共有を求められたら**: `claude-task ls --slack` の出力 (mrkdwn。優先度 (epic の子は epic の優先度) ごとの見出し + 概要ごとの段落「お客さん名: 概要」+ 依存順のタスク名。日付ゲート中のタスクは末尾の「保留」の段に日付付きで分かれる。番号・session・状態は出さない) を加工せずコードブロックで示し、`claude-task ls --slack | pbcopy` でコピーできると添える。Slack 用の文面も自分で組み立てない
 4. **idle 通知を受けたとき** (bankai session が生きていれば): `claude-task ls` を読み直し、そのタスクの状況 (返事待ちか、完了か) を 1 行で報告。完了で起動可能になったタスクがあれば `/hadou <n>` を提案する
 
 ## 守ること
