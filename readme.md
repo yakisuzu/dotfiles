@@ -33,13 +33,8 @@ https://github.com/yakisuzu.keys
 [Homebrew](https://brew.sh/ja/)  
 ```
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-# java
-brew install corretto@25
-# option
-brew install corretto@8 corretto@11 corretto@17 corretto@21
-
 brew reinstall openssl
-brew install openssh git tree p7zip tig tmux jq coreutils findutils gnu-sed grep wdiff anyenv go asdf appcleaner alfred macvim visual-studio-code@insiders docker docker-desktop slack
+brew install openssh git tree p7zip tig tmux jq coreutils findutils gnu-sed grep wdiff mise go appcleaner alfred macvim visual-studio-code@insiders docker docker-desktop slack
 # option
 brew install zoom maven sbt mysql-client@8.0 chatwork calibre karabiner-elements
 
@@ -60,42 +55,18 @@ chmod +x cloud_sql_proxy && mv cloud_sql_proxy /usr/local/bin/
 exit
 ```
 
-### anyenv
+### mise
 ```
-# anyenv
-anyenv install --init
-anyenv install jenv
-anyenv install nodenv
-anyenv install pyenv
+# ver確認
+mise ls-remote java | grep corretto
+mise ls-remote node 24 | tail -3
+mise ls-remote python | tail -3
 
-mkdir -p $(anyenv root)/plugins
-git clone https://github.com/znz/anyenv-update.git $(anyenv root)/plugins/anyenv-update
-
-# 再起動
-exit
-
-# jenv
-# install済みjavaのpath確認
-/usr/libexec/java_home -V
-# javaはbrewでいれ、参照を登録
-jenv add $(/usr/libexec/java_home -v 1.8)
-jenv add $(/usr/libexec/java_home -v 11)
-jenv add $(/usr/libexec/java_home -v 17)
-jenv add $(/usr/libexec/java_home -v 21)
-jenv add $(/usr/libexec/java_home -v 25)
-# JAVA_HOMEの有効化
-jenv enable-plugin export
-
-# nodenv
-nodenv install -l | grep '^2.\.'
-nodenv install ${LTS}
-
-# pyenv
-pyenv install -l | grep '^  2' | tail -3
-pyenv install ${2.X}
-
-pyenv install -l | grep '^  3' | tail -3
-pyenv install ${3.X}
+# global ver は dotfiles 外 (~/.config/mise/config.toml) で管理
+mise use -g java@corretto-${LTS}
+mise use -g node@${LTS}
+mise use -g python@${3.X}
+mise ls
 
 # 再起動
 exit

@@ -3,7 +3,8 @@
 # claude-task - Claude session をまたぐタスク管理 (/hadou で積む・起動する、/bankai で把握・振り分ける)
 #
 # 状態の正は ~/.claude/plans/.tasks/<id>.json。書き込みはこのスクリプト経由のみ (スキーマと状態遷移を固定する)。
-# 置くのは未完了のタスクだけ。done / drop した時点でファイルを消す (記録は残さない。結論は plan / issue / PR 側に書く)。
+# 置くのは未完了のタスクだけ。done / drop した時点でファイルを消し、closed/<id>.json に最小限 (title・種別・依存・PR・session) だけ残す。
+# closed は一覧では読まず ID か session_id で 1 件だけ引き (statusline・show 用)、7 日で消す。結論は plan / issue / PR 側に書く。
 # session の生死・返事待ち・ブロック中は保存せず、表示のたびに session registry とタスク間依存から導出する。
 # 設計: dotfiles/claude/docs/task-system-design.md
 #
@@ -35,7 +36,7 @@
 #                                    --slack は Slack 報告用 mrkdwn (優先度 (epic の子は epic の優先度) ごとの見出し + epic (無ければ概要) ごとの段落「お客さん名: 概要」。
 #                                    番号・session・状態は出さず、段落内のタスクは依存順に並べる。日付ゲート中のタスクは末尾の「保留」の段に日付付きで分ける)
 #   claude-task tree [<epic>]        epic の子を依存順の木で表示 (省略時は未完了の全 epic)
-#   claude-task show <id>            タスクの JSON を表示
+#   claude-task show <id>            タスクの JSON を表示 (閉じたタスクは closed/ の最小限の記録)
 #   claude-task set <id> key=value.. 変更可能キー: title type parent dir priority customer summary body blocked_by prs result
 #                                    waiting_on start_on hold_until plan_topic status
 #                                    (body は起動時の最初のプロンプト。変更すると log に記録する)
@@ -47,12 +48,13 @@
 #   claude-task adopt <session名|session_id> [title...]
 #                                    タスク外の live session を running タスクとして取り込む
 #   claude-task done <id> [result...] / drop <id>
-#                                    完了 / 取り下げ。タスクのファイルを消す (analysis は result 必須、epic は子が残っていると拒否)。
+#                                    完了 / 取り下げ。タスクのファイルを消し、closed/ に最小限の記録を 7 日だけ残す
+#                                    (analysis は result 必須、epic は子が残っていると拒否)。
 #                                    result は出力に表示するだけで保存しない。残したい結論は先に plan (research-*.md) / issue / PR に書く。
+#                                    analysis の result が 100 字を超えるのに URL も plan のファイル名も含まなければ拒否する
 #                                    直後に起動可能になったタスクと done 候補の epic を表示し、タスクの repo ルートで
 #                                    delete_git_merged_branch.sh を実行して merge 済み branch と worktree を片付ける
 #                                    (cwd が worktree 内なら実行せず案内のみ)
-#   claude-task purge                done / dropped のまま残っているタスクのファイルを消す (done で消す運用にする前のタスクの掃除用)
 #   claude-task launch-spec <id>     起動仕様を JSON で出力 {id, dir, worktree, prompt}。dir は本体 repo のルート、
 #                                    work は prompt に「起動後に EnterWorktree (name: task-<n>) で worktree を切る」指示を埋め込む
 #                                    (work 以外と git 外の dir では worktree 指示なし)。/hadou <n> (内部で /delegate task:) はこれをそのまま使う
@@ -73,6 +75,9 @@ SESSIONS_DIR="$CLAUDE_DIR/sessions"
 LOCAL_MD="$CLAUDE_DIR/CLAUDE.local.md"
 SEQ_FILE="$TASKS_DIR/.seq"
 LOCK_DIR="$TASKS_DIR/.lock"
+# 閉じたタスクの最小限の記録。一覧 (T-*.json の glob) には入らない。by-session/<session_id> は ID への索引
+CLOSED_DIR="$TASKS_DIR/closed"
+CLOSED_KEEP_DAYS=7
 BIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 mkdir -p "$TASKS_DIR"
@@ -109,6 +114,7 @@ lock() {
 }
 
 task_file() { echo "$TASKS_DIR/$1.json"; }
+closed_file() { echo "$CLOSED_DIR/$1.json"; }
 
 require_task() {
   [[ "$1" =~ ^T-[0-9]+$ ]] || die "不正なタスク ID: $1"
@@ -384,6 +390,8 @@ cmd_add() {
 }
 
 STATUSES="inbox queued running waiting done dropped"
+# 分析の result をそのまま通す長さの上限 (字)。超える結論は plan / issue に置かせる
+RESULT_INLINE_MAX=100
 
 cmd_set() {
   local id="$1"; shift
@@ -595,6 +603,19 @@ cleanup_merged() {
   (cd "$root" && "$BIN_DIR/delete_git_merged_branch.sh") || echo "claude-task: warning: delete_git_merged_branch.sh が失敗しました" >&2
 }
 
+# タスクのファイルを消し、closed/ に最小限だけ残す (呼び出し側でロック済みであること)。
+# body・log・result は残さない (容量の大半で、どの表示からも参照しない)。古い記録はここで消す
+close_task() {
+  local id="$1" to="$2" sid
+  mkdir -p "$CLOSED_DIR/by-session"
+  jq "$JQ_NORM"'norm | {id, title, type, status: $to, parent, blocked_by, prs, session_id, session_name, dir, closed: $now}' \
+    --arg to "$to" --arg now "$(now)" "$(task_file "$id")" >"$(closed_file "$id")"
+  sid=$(jq -r .session_id "$(closed_file "$id")")
+  [ -z "$sid" ] || echo "$id" >"$CLOSED_DIR/by-session/$sid"
+  rm -f "$(task_file "$id")"
+  find "$CLOSED_DIR" -type f -mtime +"$CLOSED_KEEP_DAYS" -delete 2>/dev/null || true
+}
+
 cmd_finish() {
   local id="$1" to="$2"; shift 2
   require_task "$id"
@@ -604,7 +625,12 @@ cmd_finish() {
   if [ "$to" = "done" ]; then
     case "$type" in
       analysis)
-        [ -n "$result" ] || die "done: 分析は結論が必須です (claude-task done $id <問題なし|issue や Slack の URL|plan のパス>)" ;;
+        [ -n "$result" ] || die "done: 分析は結論が必須です (claude-task done $id <問題なし|issue や Slack の URL|plan のパス>)"
+        # タスクは done で消えるため、長い結論をここにだけ書くと失われる。置き場所 (URL か plan) を示していなければ拒否する
+        if [ "$(jq -rn --arg r "$result" '$r | length')" -gt "$RESULT_INLINE_MAX" ] \
+          && ! grep -qE 'https?://|(plan|feature|research)-[A-Za-z0-9._-]+\.md' <<<"$result"; then
+          die "done: 結論が長い (${RESULT_INLINE_MAX} 字超) のに置き場所がありません。タスクは done で消えるので、結論を plan (research-<topic>.md) か issue に書き、その URL かパスを添えて done し直す"
+        fi ;;
       epic)
         open=$(enriched_json | jq -r --arg id "$id" '.tasks[] | select(.id == $id) | .kids_open | join(",")')
         [ -z "$open" ] || die "done: 未完了の子があります ($open)。終えるか drop してから done する" ;;
@@ -618,11 +644,11 @@ cmd_finish() {
   dir=$(task_field "$id" dir); parent=$(task_field "$id" parent)
   title=$(task_field "$id" title); prs=$(task_field "$id" 'prs | join(",")')
   lock
-  # 閉じたタスクは残さない (件数とともに一覧の読み込みが増え続けるため)。epic の進捗用に、親へ閉じた数だけ足す
+  # 閉じたタスクは一覧に残さない (件数とともに読み込みが増え続けるため)。epic の進捗用に、親へ閉じた数だけ足す
   if [ -n "$parent" ] && [ -f "$(task_file "$parent")" ]; then
     update_task "$parent" '.kids_done = ((.kids_done // 0) + 1)'
   fi
-  rm -f "$(task_file "$id")"
+  close_task "$id" "$to"
   rmdir "$LOCK_DIR" 2>/dev/null || true
   cleanup_merged "$dir"
   unblocked=$(next_json | jq -r --arg id "$id" '.[] | select(.blocked_by | index($id)) | "  \(.id) \(.title)"')
@@ -641,24 +667,6 @@ cmd_finish() {
     echo "子がすべて終わった epic (done 候補):"
     echo "$epic_done"
   fi
-}
-
-# done / dropped のまま残っているタスクを消す (done で消す運用にする前のタスクの掃除用)。
-# 開いている epic には、消した子の数を kids_done として引き継ぐ
-cmd_purge() {
-  local id parent n=0
-  lock
-  while IFS=$'\t' read -r id parent; do
-    [ -n "$id" ] || continue
-    if [ -n "$parent" ] && [ -f "$(task_file "$parent")" ] \
-      && [ "$(jq -r '.status | IN("done", "dropped")' "$(task_file "$parent")")" = false ]; then
-      update_task "$parent" '.kids_done = ((.kids_done // 0) + 1)'
-    fi
-    rm -f "$(task_file "$id")"
-    n=$((n + 1))
-  done < <(all_tasks_json | jq -r '.[] | select(.status == "done" or .status == "dropped") | [.id, (.parent // "")] | @tsv')
-  rmdir "$LOCK_DIR" 2>/dev/null || true
-  echo "purge: $n 件を削除"
 }
 
 # priority / type の表示ラベル (jq 定義。各 jq プログラムの先頭に連結して使う)
@@ -826,8 +834,15 @@ cmd_line() {
   local id="${1:-}"
   [ -n "$id" ] || die "line: <id|session_id> を指定してください"
   if [[ ! "$id" =~ ^T-[0-9]+$ ]]; then
-    id=$(cmd_id_of_session "$id")
+    local sid="$id"
+    id=$(cmd_id_of_session "$sid")
+    # 未完了に無ければ、閉じたタスクを索引から引く (全件は読まない)
+    [ -n "$id" ] || id=$(cat "$CLOSED_DIR/by-session/$sid" 2>/dev/null || true)
     [ -n "$id" ] || return 1
+  fi
+  if [ ! -f "$(task_file "$id")" ] && [ -f "$(closed_file "$id")" ]; then
+    jq -r "$JQ_PRIO"'"\(.id) \(.type | tlabel) \(.title) │ \(if .status == "done" then "完了" else "取り下げ" end)"' "$(closed_file "$id")"
+    return
   fi
   require_task "$id"
   enriched_json "$(task_field "$id" dir)" | line_view "$id"
@@ -916,14 +931,18 @@ main() {
   case "$cmd" in
     add) cmd_add "$@" ;;
     ls) cmd_ls "$@" ;;
-    show) require_task "${1:-}"; jq . "$(task_file "$1")" ;;
+    show)
+      if [[ "${1:-}" =~ ^T-[0-9]+$ ]] && [ ! -f "$(task_file "$1")" ] && [ -f "$(closed_file "$1")" ]; then
+        jq . "$(closed_file "$1")"
+      else
+        require_task "${1:-}"; jq . "$(task_file "$1")"
+      fi ;;
     set) cmd_set "${1:-}" "${@:2}" ;;
     log) cmd_log "${1:-}" "${@:2}" ;;
     link) cmd_link "${1:-}" "${2:-}" "${3:-}" ;;
     adopt) cmd_adopt "$@" ;;
     done) cmd_finish "${1:-}" "done" "${@:2}" ;;
     drop) cmd_finish "${1:-}" dropped "${@:2}" ;;
-    purge) cmd_purge ;;
     tree) cmd_tree "${1:-}" ;;
     brief) cmd_brief "${1:-}" ;;
     id-of-session) cmd_id_of_session "${1:-}" ;;

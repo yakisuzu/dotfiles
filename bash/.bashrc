@@ -23,7 +23,7 @@ function MACRC(){
 
   # homebrew
   eval "$(/opt/homebrew/bin/brew shellenv)"
-  export BREW_PREFIX="`brew --prefix`"
+  export BREW_PREFIX="$HOMEBREW_PREFIX"
   export PATH="$BREW_PREFIX/sbin:$PATH"
 
   # bash@3.2 completion
@@ -62,17 +62,22 @@ function MACRC(){
     fi
   fi
 
-  # asdf (Go版 0.16+: asdf.sh は廃止されたため shims を直接 PATH に追加)
-  export PATH="${ASDF_DATA_DIR:-$HOME/.asdf}/shims:$PATH"
+  # mise
+  # ver固定をbrewよりも優先させる
+  # .node-version / .nvmrc / .python-version / .java-version / .sdkmanrc を読む
+  export MISE_IDIOMATIC_VERSION_FILE_ENABLE_TOOLS="node,python,java,ruby"
+  # 非interactiveは prompt hook が動かないため shims を PATH に追加
+  # (shims は環境変数を設定しないため、JAVA_HOME 等は .bashrc_local で固定)
   if [[ "$IS_INTERACTIVE" == "true" ]]; then
-    . <(asdf completion bash)
+    eval "$(mise activate bash)"
+  else
+    export PATH="${MISE_DATA_DIR:-$HOME/.local/share/mise}/shims:$PATH"
   fi
 
-  # ver固定をbrewよりも優先させる
-  eval "$(anyenv init -)"
-
-  # direnv
-  eval "$(direnv hook bash)"
+  # direnv (prompt hook のため interactive のみ)
+  if [[ "$IS_INTERACTIVE" == "true" ]]; then
+    eval "$(direnv hook bash)"
+  fi
 
   # coursier
   export "PATH=$HOME/Library/Application Support/Coursier/bin:$PATH"

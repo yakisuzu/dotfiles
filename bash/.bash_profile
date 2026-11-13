@@ -16,7 +16,11 @@ if [[ "$IS_INTERACTIVE" == "true" ]]; then
 fi
 
 TERM="xterm"
-OS_NAME=$(uname -s | sed 's/[\.0-9-]//g')
+# Mac は組み込み変数で判定 (起動高速化のため uname | sed を避ける)
+case "$OSTYPE" in
+  darwin* ) OS_NAME=Darwin ;;
+  * ) OS_NAME=$(uname -s | sed 's/[\.0-9-]//g') ;;
+esac
 case "$OS_NAME" in
   "Darwin" | "MSYS_NT" | "MINGW_NT" )
     if [[ "$IS_INTERACTIVE" == "true" ]]; then

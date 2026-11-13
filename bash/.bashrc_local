@@ -4,12 +4,14 @@ if [[ "$IS_INTERACTIVE" == "true" ]]; then
   echo ------------------
 fi
 
-BREW_PREFIX=`brew --prefix`
-
-# anyenv
-#jenv global 21
-#nodenv global 24.5.0
-#pyenv global 3
+# mise
+# global ver は dotfiles 外 (~/.config/mise/config.toml) で管理
+#mise use -g java@corretto-21
+#mise use -g node@24
+#mise use -g python@3.11
+# 非interactive は shims のみで環境変数が設定されないため、global ver に合わせて固定
+MISE_INSTALLS="${MISE_DATA_DIR:-$HOME/.local/share/mise}/installs"
+[[ "$IS_INTERACTIVE" != "true" ]] && export JAVA_HOME="$MISE_INSTALLS/java/corretto-21"
 
 # PATH
 ## mysql
@@ -29,8 +31,7 @@ if [[ "$IS_INTERACTIVE" == "true" ]]; then
   echo gcloud
   echo ------
 fi
-export CLOUDSDK_PYTHON=`pyenv prefix`/bin/python
-[ -e "$BREW_PREFIX/share/google-cloud-sdk/" ] && . "$BREW_PREFIX/share/google-cloud-sdk/path.bash.inc"
+export CLOUDSDK_PYTHON="$MISE_INSTALLS/python/3.11/bin/python"
 #gcloud config configurations activate default
 if [[ "$IS_INTERACTIVE" == "true" ]]; then
   #gcloud config configurations list
