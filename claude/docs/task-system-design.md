@@ -20,7 +20,7 @@
 
 ## 3. 保存する状態と導出する状態
 
-- **保存**: 意図と関係 (依頼文、type、parent、dir、priority、blocked_by、担当 session、PR、result、waiting_on、status = inbox/queued/running/waiting/done/dropped)。
+- **保存**: 意図と関係 (依頼文、type、parent、dir、priority、blocked_by、担当 session、PR、waiting_on、status = inbox/queued/running/waiting、epic の kids_done)。閉じたタスク (done / dropped) は保存しない (11 章)。
 - **導出 (保存しない)**: epic の子一覧と進捗 (子の parent から)、running タスクの未完了の待ち先 (blocked_by。session が先に動いていても一覧の補足に出し、session が終了していれば「要確認」ではなく「ブロック中」に寄せる)、session 名 (registry の現在値を優先。SessionStart の link 時点では registry に name が未登録のことがあるため、保存値は fallback)、session の生死・busy/idle (`~/.claude/sessions/*.json`、非公式フォーマット)、ブロック中か (blocked_by の status)、repo 名 (dir の git-common-dir)、プロダクト group (`CLAUDE.local.md` の Plan Group mapping)。
 - **理由**: 導出できる値を保存すると実態とずれる。session-deps v3 と同じ方針。idle をそのまま「ユーザーの番」と表示するのは近似 (単に作業が終わっただけの idle もある)。
 - **title は人に伝える名前**: 日本語 10-30 字の短い名詞句で、issue 番号・repo 名は入れない (repo は表示時に導出、番号は body)。`/bankai` の報告文ではタスクを番号ではなく title で呼ぶ (番号だけではユーザーに伝わらない)。CLI は長さの目安外を警告のみ (adopt の仮 title が session 名になるため拒否しない)、title 変更は旧値を log に残す。
@@ -70,9 +70,9 @@
   |---|---|---|---|---|
   | 成果物 | 結論 (問題なし / issue / Slack) | PR / issue / Slack 報告 | 他者の返答 | 子の完了 |
   | 起動時 worktree | 切らない | 切る | 切らない | 切らない |
-  | `done` | result 必須 | prs も result も無ければ警告 | 制約なし | 未完了の子があれば拒否 |
+  | `done` | result 必須 (出力に出すだけ。保存しない) | prs も result も無ければ警告 | 制約なし | 未完了の子があれば拒否 |
   | session の役割 | 調べて結論を出す | 実装して PR 等を出す | 依頼文の作成・催促 (任意) | 振り分けと進捗の親 (子を積み、起動を提案) |
-- **理由**: 分析と作業は完了の定義が違う (分析は「問題ない」と分かれば PR 無しで閉じてよい)。種別が無いと、分析 session が PR を作ろうとしたり、結論を残さず done したりする。完了条件を script に置けば、LLM の判断に頼らず結論が result に残る。
+- **理由**: 分析と作業は完了の定義が違う (分析は「問題ない」と分かれば PR 無しで閉じてよい)。種別が無いと、分析 session が PR を作ろうとしたり、結論を残さず done したりする。完了条件を script に置けば、LLM の判断に頼らず、結論を言わないまま閉じることを防げる (結論の置き場所は plan / issue。11 章)。
 - **完了手順の注入**: 担当 session への注入文は `claude-task brief` が種別ごとに決め、SessionStart hook はそれを出すだけ。種別の知識を hook と skill に分散させない。
 - **自分がするレビューは作業**: 往復はあっても、自分が成果物 (レビュー) を出す点で作業と同じ。区分を増やすと分類で迷う。動作確認・検証は成果物が結論なので分析、環境への適用は Slack 報告で閉じるので作業。
 - **依頼は status `waiting`**: 他者待ちは session が無くても続く状態のため、running とは別の status にする。`waiting_on` (相手・URL) を入れると waiting になる。他者待ちを依頼タスクにしておくと、それを blocked_by に持つタスクの「何待ちか」が一覧に出る (GitHub に書かれた待ちは引き続き claude-session-deps)。
@@ -90,7 +90,16 @@
 - **理由 (文章で代用しない)**: 以前は waiting_on や log に「12/31 まで保留」と書いていたが、`/bankai` が催促を提案するか・`/hadou` が起動してよいかを文章から読む形になり、判定がぶれる。日付を構造に持てば CLI が決定的に判定し、期限到来も自動で先頭に出る。
 - **後方互換**: 2 キー追加前の JSON は書き換えず、読むときに空で補う (`JQ_NORM`)。今日の日付は `CLAUDE_TASK_TODAY` で差し替えられる (テスト用)。
 
-## 11. 今後 (Phase 3)
+## 11. 閉じたタスクは残さない
+
+- **決定**: `done` / `drop` した時点でタスクのファイルを消す。archive も作らない。`.tasks/` にあるのは未完了のタスクだけ。
+- **理由**: 一覧・statusline は表示のたびに全タスクを読んで導出する。閉じたタスクを残すと件数とともに読み込みが増え続け、実際に 340 件 (うち閉じたもの 270 件) で jq への引数渡しが OS の引数長上限を超えて一覧が落ちた。archive に移しても溜まり続ける場所が変わるだけ。
+- **知見は plan に置く**: context の把握は plan (と issue / PR) が主で、タスクは作業の入れ物。タスクを消して失われる知見があるなら、それは plan に書くべきものが書かれていない。分析の結論は done の前に `research-<topic>.md` か issue に書き、done にはその場所を渡す (result は出力に出るだけで保存しない)。
+- **消えても壊れないための扱い**: 存在しない `blocked_by` は完了済みとして扱う (待ち先が消えたら起動可能になる)。epic の進捗 (子 n/m 完了) は子から導出できなくなるため、子を閉じるたびに epic の `kids_done` を 1 足して分子に使う。ID は `.seq` の連番で、消しても再利用しない。
+- **取り消せない**: 誤って done したタスクは戻せない (title / prs / result は done の出力に出る)。`set status=done` は拒否し、入口を `done` / `drop` に限る。
+- `claude-task purge` は、この運用にする前から残っていた done / dropped を消す掃除用。
+
+## 12. 今後 (Phase 3)
 
 - claude-session-deps の graph にタスク層を足す。PR が merge されたらタスクを done 候補として表示する。
 - `.deps` の pr/remote 宣言をタスクの `blocked_by` に吸収する。

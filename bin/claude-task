@@ -3,6 +3,7 @@
 # claude-task - Claude session をまたぐタスク管理 (/hadou で積む・起動する、/bankai で把握・振り分ける)
 #
 # 状態の正は ~/.claude/plans/.tasks/<id>.json。書き込みはこのスクリプト経由のみ (スキーマと状態遷移を固定する)。
+# 置くのは未完了のタスクだけ。done / drop した時点でファイルを消す (記録は残さない。結論は plan / issue / PR 側に書く)。
 # session の生死・返事待ち・ブロック中は保存せず、表示のたびに session registry とタスク間依存から導出する。
 # 設計: dotfiles/claude/docs/task-system-design.md
 #
@@ -46,10 +47,12 @@
 #   claude-task adopt <session名|session_id> [title...]
 #                                    タスク外の live session を running タスクとして取り込む
 #   claude-task done <id> [result...] / drop <id>
-#                                    完了 / 取り下げ。result を渡すと記録する (analysis は result 必須、epic は子が残っていると拒否)。
+#                                    完了 / 取り下げ。タスクのファイルを消す (analysis は result 必須、epic は子が残っていると拒否)。
+#                                    result は出力に表示するだけで保存しない。残したい結論は先に plan (research-*.md) / issue / PR に書く。
 #                                    直後に起動可能になったタスクと done 候補の epic を表示し、タスクの repo ルートで
 #                                    delete_git_merged_branch.sh を実行して merge 済み branch と worktree を片付ける
 #                                    (cwd が worktree 内なら実行せず案内のみ)
+#   claude-task purge                done / dropped のまま残っているタスクのファイルを消す (done で消す運用にする前のタスクの掃除用)
 #   claude-task launch-spec <id>     起動仕様を JSON で出力 {id, dir, worktree, prompt}。dir は本体 repo のルート、
 #                                    work は prompt に「起動後に EnterWorktree (name: task-<n>) で worktree を切る」指示を埋め込む
 #                                    (work 以外と git 外の dir では worktree 指示なし)。/hadou <n> (内部で /delegate task:) はこれをそのまま使う
@@ -142,10 +145,11 @@ csv_to_json() {
 
 TYPES="analysis work request epic"
 
+# kids_done は epic が持つ「閉じた子の数」(子は閉じると消えるため、進捗の分子として保存する)。
 # 種別追加前のタスクは type / parent / result / waiting_on を、日付ゲート追加前のタスクは start_on / hold_until を持たないため、
 # 読むときに既定値で補う (ファイルは書き換えない)
 JQ_NORM='def norm: . + {type: (.type // "work"), parent: (.parent // ""), result: (.result // ""), waiting_on: (.waiting_on // ""),
-  start_on: (.start_on // ""), hold_until: (.hold_until // "")};'
+  start_on: (.start_on // ""), hold_until: (.hold_until // ""), kids_done: (.kids_done // 0)};'
 
 task_field() { jq -r "$JQ_NORM"' norm | .'"$2" "$(task_file "$1")"; }
 
@@ -296,7 +300,8 @@ enriched_json() {
             live: (if $t.session_id == "" then "" elif $s then $s.status else "exited" end),
             # session 名は registry の現在値を優先する (SessionStart の link 時点では registry に name が未登録のことがある)
             session_name: (if ($s.name // "") != "" then $s.name else $t.session_name end),
-            blocking: [$t.blocked_by[] | select(($st[.] // "missing") as $x | $x != "done" and $x != "dropped")],
+            # 閉じたタスクは消えるので、存在しない待ち先は完了済みとして扱う
+            blocking: [$t.blocked_by[] | select(($st[.] // "done") as $x | $x != "done" and $x != "dropped")],
             # epic の子 (保存せず parent から導出)。kids_open は未完了の子
             kids: $kids,
             kids_open: [$kids[] | select($st[.] != "done" and $st[.] != "dropped")],
@@ -445,6 +450,7 @@ cmd_set() {
         update_task "$id" '.prs = $v' --argjson v "$(csv_to_json "$val")" ;;
       status)
         [[ " $STATUSES " == *" $val "* ]] || die "set: status は $STATUSES のいずれか"
+        case "$val" in done|dropped) die "set: 完了 / 取り下げは claude-task done $id / drop $id (ファイルを消す)" ;; esac
         if [ "$val" = queued ] && [ "$(jq -r .dir "$(task_file "$id")")" = "" ]; then
           die "set: dir 未定のまま queued にはできません"
         fi
@@ -543,7 +549,7 @@ cmd_brief() {
   msg="Task: この session は ${id} ($(type_label "$type")) を担当 (\`claude-task show ${id}\`)。"
   case "$type" in
     analysis)
-      msg+="コードは変更しない。結論が出たら \`claude-task done ${id} <問題なし|issue や Slack の URL>\` で閉じる。修正が要ると分かったら /hadou で作業タスクとして積む" ;;
+      msg+="コードは変更しない。結論が出たら \`claude-task done ${id} <問題なし|issue や Slack の URL|plan のパス>\` で閉じる (タスクは done で消えるので、残す結論は先に plan の research-*.md か issue に書く)。修正が要ると分かったら /hadou で作業タスクとして積む" ;;
     request)
       msg+="依頼を送ったら \`claude-task set ${id} waiting_on=<相手・依頼先 URL>\`、返答を得たら \`claude-task done ${id} <返答の要旨か URL>\`" ;;
     epic)
@@ -577,8 +583,7 @@ next_json() {
 # その worktree を消す (未 merge・変更ありの worktree は残る)。呼び出し元の cwd が worktree 内だと自分の cwd を
 # 消してしまうため、その場合は実行せず ExitWorktree を促す
 cleanup_merged() {
-  local id="$1" dir root
-  dir=$(jq -r .dir "$(task_file "$id")")
+  local dir="$1" root
   [ -n "$dir" ] || return 0
   root=$(repo_root_of_dir "$dir")
   [ -n "$root" ] || return 0
@@ -599,7 +604,7 @@ cmd_finish() {
   if [ "$to" = "done" ]; then
     case "$type" in
       analysis)
-        [ -n "$result" ] || die "done: 分析は結論が必須です (claude-task done $id <問題なし|issue や Slack の URL>)" ;;
+        [ -n "$result" ] || die "done: 分析は結論が必須です (claude-task done $id <問題なし|issue や Slack の URL|plan のパス>)" ;;
       epic)
         open=$(enriched_json | jq -r --arg id "$id" '.tasks[] | select(.id == $id) | .kids_open | join(",")')
         [ -z "$open" ] || die "done: 未完了の子があります ($open)。終えるか drop してから done する" ;;
@@ -609,19 +614,25 @@ cmd_finish() {
         fi ;;
     esac
   fi
+  local dir parent title prs unblocked epic_done=""
+  dir=$(task_field "$id" dir); parent=$(task_field "$id" parent)
+  title=$(task_field "$id" title); prs=$(task_field "$id" 'prs | join(",")')
   lock
-  update_task "$id" '.status = $v | .result = $r | .log += [{at: $now, msg: ($v + (if $r != "" then ": " + $r else "" end) + $tag)}]' \
-    --arg v "$to" --arg r "$result" --arg tag "$(caller_tag)"
-  rmdir "$LOCK_DIR" 2>/dev/null || true
-  cleanup_merged "$id"
-  local unblocked parent epic_done=""
-  unblocked=$(next_json | jq -r --arg id "$id" '.[] | select(.blocked_by | index($id)) | "  \(.id) \(.title)"')
-  parent=$(task_field "$id" parent)
-  if [ -n "$parent" ]; then
-    epic_done=$(enriched_json | jq -r --arg p "$parent" '.tasks[] | select(.id == $p and (.kids_open | length) == 0
-      and .status != "done" and .status != "dropped") | "  \(.id) \(.title) (claude-task done \(.id))"')
+  # 閉じたタスクは残さない (件数とともに一覧の読み込みが増え続けるため)。epic の進捗用に、親へ閉じた数だけ足す
+  if [ -n "$parent" ] && [ -f "$(task_file "$parent")" ]; then
+    update_task "$parent" '.kids_done = ((.kids_done // 0) + 1)'
   fi
-  echo "$id -> $to"
+  rm -f "$(task_file "$id")"
+  rmdir "$LOCK_DIR" 2>/dev/null || true
+  cleanup_merged "$dir"
+  unblocked=$(next_json | jq -r --arg id "$id" '.[] | select(.blocked_by | index($id)) | "  \(.id) \(.title)"')
+  if [ -n "$parent" ] && [ -f "$(task_file "$parent")" ]; then
+    epic_done=$(enriched_json | jq -r --arg p "$parent" '.tasks[] | select(.id == $p and (.kids_open | length) == 0)
+      | "  \(.id) \(.title) (claude-task done \(.id))"')
+  fi
+  echo "$id -> $to (削除): $title"
+  [ -z "$prs" ] || echo "  prs: $prs"
+  [ -z "$result" ] || echo "  result: $result"
   if [ -n "$unblocked" ]; then
     echo "起動可能になったタスク:"
     echo "$unblocked"
@@ -630,6 +641,24 @@ cmd_finish() {
     echo "子がすべて終わった epic (done 候補):"
     echo "$epic_done"
   fi
+}
+
+# done / dropped のまま残っているタスクを消す (done で消す運用にする前のタスクの掃除用)。
+# 開いている epic には、消した子の数を kids_done として引き継ぐ
+cmd_purge() {
+  local id parent n=0
+  lock
+  while IFS=$'\t' read -r id parent; do
+    [ -n "$id" ] || continue
+    if [ -n "$parent" ] && [ -f "$(task_file "$parent")" ] \
+      && [ "$(jq -r '.status | IN("done", "dropped")' "$(task_file "$parent")")" = false ]; then
+      update_task "$parent" '.kids_done = ((.kids_done // 0) + 1)'
+    fi
+    rm -f "$(task_file "$id")"
+    n=$((n + 1))
+  done < <(all_tasks_json | jq -r '.[] | select(.status == "done" or .status == "dropped") | [.id, (.parent // "")] | @tsv')
+  rmdir "$LOCK_DIR" 2>/dev/null || true
+  echo "purge: $n 件を削除"
 }
 
 # priority / type の表示ラベル (jq 定義。各 jq プログラムの先頭に連結して使う)
@@ -672,7 +701,7 @@ def state($titles):
   else [7, "取り下げ", ""] end;
 def where: if .repo == "" then "" elif .group != "" and .group != .repo then " [" + .group + "/" + .repo + "]" else " [" + .repo + "]" end;
 # epic は子の進捗、子は所属 epic を概要に添える
-def rel($titles): if .type == "epic" then " (子 \((.kids | length) - (.kids_open | length))/\(.kids | length) 完了)"
+def rel($titles): if .type == "epic" then " (子 \(.kids_done + (.kids | length) - (.kids_open | length))/\(.kids_done + (.kids | length)) 完了)"
   elif .parent != "" then " ⊂「" + ($titles[.parent] // .parent) + "」" else "" end;
 '
 
@@ -894,6 +923,7 @@ main() {
     adopt) cmd_adopt "$@" ;;
     done) cmd_finish "${1:-}" "done" "${@:2}" ;;
     drop) cmd_finish "${1:-}" dropped "${@:2}" ;;
+    purge) cmd_purge ;;
     tree) cmd_tree "${1:-}" ;;
     brief) cmd_brief "${1:-}" ;;
     id-of-session) cmd_id_of_session "${1:-}" ;;
