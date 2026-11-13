@@ -8,6 +8,7 @@
 - SessionStart に `Task: この session は T-<n> (<種別>) を担当` と出たら、その行の完了手順に従う (作業なら PR 作成時に `claude-task set T-<n> prs=<owner/repo#N>`、分析なら `claude-task done T-<n> <結論>`)。子 session (親 epic がある) は、派生したタスクを `/hadou parent: <epic> ...` で同じ epic に積む
 - 完了 (PR が merge 済み、または PR の無い作業が終わった) したら、次の順で片付けて終える
   1. worktree 内にいれば `ExitWorktree` (action: keep) で本体に戻る (cwd が worktree 内のままだと片付けが走らない)
-  2. `claude-task done T-<n> [結論や成果物の URL]` (merge 済みの branch と worktree はここで `delete_git_merged_branch.sh` が消す)
-  3. 出力で worktree が残っていないか確認し、「完了・片付け済み」と報告して終える
+  2. 残す結論・知見があれば、先に plan (`research-<topic>.md` 等) か issue / PR に書く (タスクは done / drop した時点でファイルごと消える。result は出力に出るだけで保存されない)
+  3. `claude-task done T-<n> [結論や成果物の URL・plan のパス]` (merge 済みの branch と worktree はここで `delete_git_merged_branch.sh` が消す)
+  4. 出力で worktree が残っていないか確認し、「完了・片付け済み」と報告して終える
 - 設計思想は `dotfiles/claude/docs/task-system-design.md`

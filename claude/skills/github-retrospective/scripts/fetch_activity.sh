@@ -40,6 +40,6 @@ open_prs=$(gh search prs --author=@me --state open --created "${start}..${end}" 
   --limit 100 --json "$pr_fields" "$@")
 
 jq -n \
-  --argjson merged "$merged" \
-  --argjson open "$open_prs" \
-  '{merged_prs: $merged, open_prs: $open}'
+  --slurpfile merged <(printf '%s' "$merged") \
+  --slurpfile open <(printf '%s' "$open_prs") \
+  '{merged_prs: $merged[0], open_prs: $open[0]}'
