@@ -245,7 +245,7 @@ repo_map_json() {
   while IFS= read -r d; do
     [ -n "$d" ] || continue
     out=$(jq -c --arg d "$d" --arg r "$(repo_of_dir "$d")" '. + {($d): $r}' <<<"$out")
-  done < <(jq -rn --argjson t "$tasks" --argjson l "$live" '([$t[].dir] + [$l[].cwd]) | unique | .[]')
+  done < <(jq -rn --slurpfile t <(printf '%s' "$tasks") --slurpfile l <(printf '%s' "$live") '([$t[0][].dir] + [$l[0][].cwd]) | unique | .[]')
   echo "$out"
 }
 
@@ -262,9 +262,12 @@ enriched_json() {
   else
     rmap=$(repo_map_json "$tasks" "$live")
   fi
-  jq -n --argjson tasks "$tasks" --argjson live "$live" --argjson gmap "$gmap" --argjson rmap "$rmap" \
+  # 件数が増えると引数長 (ARG_MAX) を超えるため、大きな JSON は --slurpfile (配列で包まれる) で渡す
+  jq -n --slurpfile tasks_f <(printf '%s' "$tasks") --slurpfile live_f <(printf '%s' "$live") \
+    --slurpfile gmap_f <(printf '%s' "$gmap") --slurpfile rmap_f <(printf '%s' "$rmap") \
     --arg home "$HOME" --arg self "${CLAUDE_CODE_SESSION_ID:-}" --arg today "$(today)" "$JQ_NORM"'
-    def expand: if startswith("~/") then $home + .[1:] elif . == "~" then $home else . end;
+    $live_f[0] as $live | $gmap_f[0] as $gmap | $rmap_f[0] as $rmap
+    | def expand: if startswith("~/") then $home + .[1:] elif . == "~" then $home else . end;
     def group_of: (expand) as $d
       | [$gmap[] | . as $m | select(($d | endswith("/" + $m.pattern)) or ($d | contains("/" + $m.pattern + "/")))]
       | sort_by(.pattern | length) | last | (.group // "");
@@ -282,7 +285,7 @@ enriched_json() {
         elif $g == "hold" then (.hold_until | dshort) + " まで保留"
         elif $g == "due" then (.hold_until | dshort) + " 期限"
         else "" end;
-    ($tasks | map(norm)) as $tasks
+    ($tasks_f[0] | map(norm)) as $tasks
     | ($tasks | map({key: .id, value: .status}) | from_entries) as $st
     | ($tasks | map(select(.session_id != "") | .session_id)) as $linked
     | ($tasks | map(
